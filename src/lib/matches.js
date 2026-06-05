@@ -5,6 +5,7 @@
 import { api } from './api.js'
 import { LEAGUES, MAX_LEAGUES_SHOWN } from './leagues.js'
 import { abbr, colorFor, fmtTime } from './format.js'
+import { natStrength } from './nationalStrength.js'
 
 function pushForm(form, id, res) {
   if (!form[id]) form[id] = []
@@ -14,6 +15,7 @@ function pushForm(form, id, res) {
 async function loadLeagueFull(lg, nextEv) {
   const season = nextEv.strSeason
   const round = parseInt(nextEv.intRound, 10)
+  const isNation = lg.kind === 'nation' // Copa do Mundo / Eurocopa
 
   // 1) estatísticas (att/def) + forma a partir dos resultados reais
   const stat = {}
@@ -67,16 +69,20 @@ async function loadLeagueFull(lg, nextEv) {
   fixtures.sort((a, b) => (a.strTimestamp || '').localeCompare(b.strTimestamp || ''))
 
   const matches = fixtures.map((e) => {
-    const hs = strength[e.idHomeTeam]
-    const as = strength[e.idAwayTeam]
+    // histórico no torneio tem prioridade; em competição de seleções sem
+    // histórico, usa a força por ranking (proxy FIFA) como fallback.
+    const hs = strength[e.idHomeTeam] || (isNation ? natStrength(e.strHomeTeam) : null)
+    const as = strength[e.idAwayTeam] || (isNation ? natStrength(e.strAwayTeam) : null)
     return {
       id: `${lg.id}-${e.idEvent}`,
       league: lg.local,
       flag: lg.flag,
       leagueAvg,
-      // só dá para prever com confiança se os dois times têm histórico
-      // recente na competição (ex.: rodada 1 de copa ainda não tem).
+      // só dá para prever com confiança se os dois times têm força estimada
+      // (histórico na competição, ou ranking no caso de seleções).
       predictable: !!(hs && as),
+      // jogo de seleção em sede neutra: sem vantagem de mando.
+      homeAdv: isNation ? 1.0 : undefined,
       time: fmtTime(e.strTimestamp),
       home: {
         name: e.strHomeTeam,

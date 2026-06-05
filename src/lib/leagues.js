@@ -11,10 +11,11 @@
 // incluídas porque o endpoint de listagem da chave gratuita vem truncado e
 // não expõe esses IDs. Com uma chave registrada dá para adicioná-las.
 export const LEAGUES = [
-  // ── Seleções / mundiais ──
-  { id: '4429', name: 'FIFA World Cup', local: 'Copa do Mundo', flag: '🏆' },
+  // ── Seleções / mundiais ── (kind 'nation' usa força por ranking quando
+  //    ainda não há histórico no torneio)
+  { id: '4429', name: 'FIFA World Cup', local: 'Copa do Mundo', flag: '🏆', kind: 'nation' },
   { id: '4503', name: 'FIFA Club World Cup', local: 'Mundial de Clubes', flag: '🌍' },
-  { id: '4502', name: 'UEFA European Championship', local: 'Eurocopa', flag: '🇪🇺' },
+  { id: '4502', name: 'UEFA European Championship', local: 'Eurocopa', flag: '🇪🇺', kind: 'nation' },
   // ── Continentais de clubes (Europa) ──
   { id: '4480', name: 'UEFA Champions League', local: 'Champions League', flag: '⭐' },
   { id: '4481', name: 'UEFA Europa League', local: 'Europa League', flag: '🟠' },

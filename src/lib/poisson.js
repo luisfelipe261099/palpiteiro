@@ -12,7 +12,8 @@ function poisson(k, lambda) {
 
 export function predict(match) {
   const avg = match.leagueAvg || 1.35
-  const expH = avg * match.home.att * match.away.def * HOME_ADV
+  const adv = match.homeAdv != null ? match.homeAdv : HOME_ADV
+  const expH = avg * match.home.att * match.away.def * adv
   const expA = avg * match.away.att * match.home.def
 
   let pH = 0,
