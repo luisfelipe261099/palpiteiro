@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Ticket, X } from 'lucide-react'
 import { useBetSlip } from '../context/BetSlipContext.jsx'
+import StakeSimulator from './StakeSimulator.jsx'
 
 export default function BetSlip() {
   const [open, setOpen] = useState(false)
@@ -55,21 +56,24 @@ export default function BetSlip() {
           </AnimatePresence>
         )}
 
-        <div className="slip-foot">
-          <div className="box">
-            <div className="k">Chance combinada</div>
-            <div className="v">{totals.count ? `${Math.round(totals.prob * 100)}%` : '—'}</div>
+        {picks.length > 0 ? (
+          <>
+            <StakeSimulator odd={totals.odd} prob={totals.prob} />
+            <button className="clearbtn" onClick={clear}>
+              Limpar bilhete
+            </button>
+          </>
+        ) : (
+          <div className="slip-foot">
+            <div className="box">
+              <div className="k">Chance combinada</div>
+              <div className="v">—</div>
+            </div>
+            <div className="box">
+              <div className="k">Retorno</div>
+              <div className="v">—</div>
+            </div>
           </div>
-          <div className="box">
-            <div className="k">R$10 retornam</div>
-            <div className="v">{totals.count ? `R$${totals.payout.toFixed(2)}` : '—'}</div>
-          </div>
-        </div>
-
-        {picks.length > 0 && (
-          <button className="clearbtn" onClick={clear}>
-            Limpar bilhete
-          </button>
         )}
       </div>
     </motion.div>

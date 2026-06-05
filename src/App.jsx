@@ -2,12 +2,14 @@ import { useState, useMemo } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import Header from './components/Header.jsx'
 import LeagueGroup from './components/LeagueGroup.jsx'
+import ReadyTickets from './components/ReadyTickets.jsx'
 import BetSlip from './components/BetSlip.jsx'
 import { useMatches } from './hooks/useMatches.js'
 import { predict, bestPick, tier } from './lib/poisson.js'
 
 export default function App() {
   const { groups, loading, error, reload } = useMatches()
+  const [view, setView] = useState('matches') // matches | ready
   const [filter, setFilter] = useState('all')
 
   // aplica o filtro de risco por grupo
@@ -29,6 +31,8 @@ export default function App() {
   return (
     <>
       <Header
+        view={view}
+        onView={setView}
         filter={filter}
         onFilter={setFilter}
         onRefresh={() => reload({ fresh: true })}
@@ -36,47 +40,51 @@ export default function App() {
       />
 
       <main className="wrap">
-        <p className="intro">
-          Probabilidades por modelo estatístico (Poisson) a partir de <b>dados reais</b> de classificação, força
-          ofensiva/defensiva e forma recente. Toque em <b>+ Bilhete</b> para montar sua aposta.
-        </p>
-
-        {loading && (
+        {view === 'ready' ? (
+          <ReadyTickets groups={groups} loading={loading} error={error} />
+        ) : (
           <>
-            <div className="state">
-              <span className="spin" />
-              Carregando jogos e estatísticas reais…
-            </div>
-            <div className="skel" />
-            <div className="skel" />
+            <p className="intro">
+              Probabilidades por modelo estatístico (Poisson) a partir de <b>dados reais</b> de classificação,
+              força ofensiva/defensiva e forma recente. Toque em <b>+ Bilhete</b> para montar sua aposta.
+            </p>
+
+            {loading && (
+              <>
+                <div className="state">
+                  <span className="spin" />
+                  Carregando jogos e estatísticas reais…
+                </div>
+                <div className="skel" />
+                <div className="skel" />
+              </>
+            )}
+
+            {!loading && error && (
+              <div className="state">
+                {error}
+                <br />
+                <button className="retry" onClick={() => reload({ fresh: true })}>
+                  Tentar de novo
+                </button>
+              </div>
+            )}
+
+            {!loading && !error && filtered.length === 0 && (
+              <p className="intro" style={{ textAlign: 'center', padding: '30px 0' }}>
+                Nenhum jogo nesta categoria agora.
+              </p>
+            )}
+
+            {!loading &&
+              !error &&
+              filtered.map((group) => {
+                const start = runningIndex
+                runningIndex += group.matches.length
+                return <LeagueGroup key={group.id} group={group} startIndex={start} />
+              })}
           </>
         )}
-
-        {!loading && error && (
-          <div className="state">
-            {error}
-            <br />
-            <button className="retry" onClick={() => reload({ fresh: true })}>
-              Tentar de novo
-            </button>
-          </div>
-        )}
-
-        {!loading && !error && filtered.length === 0 && (
-          <p className="intro" style={{ textAlign: 'center', padding: '30px 0' }}>
-            Nenhum jogo nesta categoria agora.
-          </p>
-        )}
-
-        {!loading &&
-          !error &&
-          filtered.map((group) => {
-            const start = runningIndex
-            runningIndex += group.matches.length
-            return (
-              <LeagueGroup key={group.id} group={group} startIndex={start} />
-            )
-          })}
 
         <div className="disclaimer">
           <AlertTriangle size={14} style={{ verticalAlign: '-2px' }} /> <b>Aviso:</b> estes são{' '}

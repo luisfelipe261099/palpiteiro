@@ -186,6 +186,36 @@ img {
   }
 }
 
+/* ---------------- VIEW NAV (segmented) ---------------- */
+.viewnav {
+  display: flex;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r-pill);
+  padding: 4px;
+  margin: 2px 0 12px;
+}
+.vbtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px;
+  border-radius: var(--r-pill);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--txt-2);
+  transition: 0.18s;
+}
+.vbtn[data-active='true'] {
+  background: var(--accent-grad);
+  color: #04140d;
+  font-weight: 800;
+  box-shadow: var(--shadow-sm);
+}
+
 /* ---------------- TABS ---------------- */
 .tabs {
   display: flex;
@@ -594,6 +624,119 @@ img {
   color: var(--accent);
   font-weight: 700;
   text-decoration: underline;
+}
+
+/* ---------------- READY TICKET ---------------- */
+.ticket-games {
+  display: flex;
+  flex-direction: column;
+  margin: 4px 0 2px;
+}
+.tg {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 0;
+  border-top: 1px solid var(--stroke);
+}
+.tg:first-child {
+  border-top: none;
+  padding-top: 4px;
+}
+.tg-main {
+  flex: 1;
+  min-width: 0;
+}
+.tg-match {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.tg-pick {
+  font-size: 13.5px;
+  font-weight: 800;
+  margin-top: 2px;
+}
+.tg-odd {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+/* ---------------- STAKE SIMULATOR ---------------- */
+.stake {
+  margin-top: 13px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r-md);
+  padding: 12px;
+}
+.stake-label {
+  font-size: 9.5px;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.stake-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 9px;
+  align-items: stretch;
+}
+.stake-input {
+  flex: 1.1;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r-sm);
+  padding: 0 11px;
+}
+.stake-input span {
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 14px;
+}
+.stake-input input {
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--txt);
+  font-size: 17px;
+  font-weight: 800;
+  font-family: inherit;
+  padding: 11px 0;
+}
+.stake-input input:focus {
+  outline: none;
+}
+.stake-box {
+  flex: 1;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r-sm);
+  padding: 7px 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.stake-box .k {
+  font-size: 9.5px;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.stake-box .v {
+  font-size: 15px;
+  font-weight: 800;
+  margin-top: 2px;
+}
+.stake-box.accent .v {
+  color: var(--accent);
 }
 
 /* spinner */
