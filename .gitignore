@@ -1,0 +1,14 @@
+node_modules
+dist
+dist-ssr
+*.local
+
+# variáveis de ambiente com chaves — NÃO commitar
+.env
+.env.*.local
+
+# editor / SO
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+Thumbs.db
