@@ -1,6 +1,6 @@
 import MatchCard from './MatchCard.jsx'
 
-export default function LeagueGroup({ group, startIndex, onNeedKey }) {
+export default function LeagueGroup({ group, startIndex }) {
   return (
     <section>
       <div className="league-head">
@@ -10,7 +10,7 @@ export default function LeagueGroup({ group, startIndex, onNeedKey }) {
         <span className="count">{group.matches.length} jogos</span>
       </div>
       {group.matches.map((m, i) => (
-        <MatchCard key={m.id} match={m} index={startIndex + i} onNeedKey={onNeedKey} />
+        <MatchCard key={m.id} match={m} index={startIndex + i} />
       ))}
     </section>
   )

@@ -3,14 +3,12 @@ import { AlertTriangle } from 'lucide-react'
 import Header from './components/Header.jsx'
 import LeagueGroup from './components/LeagueGroup.jsx'
 import BetSlip from './components/BetSlip.jsx'
-import SettingsModal from './components/SettingsModal.jsx'
 import { useMatches } from './hooks/useMatches.js'
 import { predict, bestPick, tier } from './lib/poisson.js'
 
 export default function App() {
   const { groups, loading, error, reload } = useMatches()
   const [filter, setFilter] = useState('all')
-  const [settingsOpen, setSettingsOpen] = useState(false)
 
   // aplica o filtro de risco por grupo
   const filtered = useMemo(() => {
@@ -33,7 +31,6 @@ export default function App() {
       <Header
         filter={filter}
         onFilter={setFilter}
-        onOpenSettings={() => setSettingsOpen(true)}
         onRefresh={() => reload({ fresh: true })}
         refreshing={loading}
       />
@@ -77,12 +74,7 @@ export default function App() {
             const start = runningIndex
             runningIndex += group.matches.length
             return (
-              <LeagueGroup
-                key={group.id}
-                group={group}
-                startIndex={start}
-                onNeedKey={() => setSettingsOpen(true)}
-              />
+              <LeagueGroup key={group.id} group={group} startIndex={start} />
             )
           })}
 
@@ -102,7 +94,6 @@ export default function App() {
       </main>
 
       <BetSlip />
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </>
   )
 }

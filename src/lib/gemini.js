@@ -1,34 +1,13 @@
 // Análise IA via Google Gemini com Google Search grounding.
-// A chave vem do .env (VITE_GEMINI_KEY) e pode ser sobrescrita pelo
-// usuário (localStorage). A probabilidade segue sendo a estatística —
-// a IA só adiciona contexto qualitativo (notícias, lesões, escalações).
+// A chave vem exclusivamente do .env (VITE_GEMINI_KEY) — configure no
+// provedor de deploy (ex.: Vercel). A probabilidade segue sendo a
+// estatística; a IA só adiciona contexto (notícias, lesões, escalações).
 
 const ENV_KEY = import.meta.env.VITE_GEMINI_KEY || ''
 const MODEL = 'gemini-2.5-flash'
 
-export function getGeminiKey() {
-  try {
-    return localStorage.getItem('palpiteiro_gemini') || ENV_KEY
-  } catch {
-    return ENV_KEY
-  }
-}
-
-export function setGeminiKey(key) {
-  try {
-    if (key) localStorage.setItem('palpiteiro_gemini', key)
-    else localStorage.removeItem('palpiteiro_gemini')
-  } catch {
-    /* ignore */
-  }
-}
-
-export function hasGeminiKey() {
-  return !!getGeminiKey()
-}
-
 export async function analyzeMatch(home, away, league) {
-  const key = getGeminiKey()
+  const key = ENV_KEY
   if (!key) return { ok: false, needKey: true }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(key)}`

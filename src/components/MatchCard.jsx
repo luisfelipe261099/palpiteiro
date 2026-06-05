@@ -23,7 +23,7 @@ function reason(m, pr) {
   )
 }
 
-export default function MatchCard({ match, index, onNeedKey }) {
+export default function MatchCard({ match, index }) {
   const pr = predict(match)
   const pick = bestPick(pr, match)
   const t = tier(pick.p)
@@ -125,7 +125,7 @@ export default function MatchCard({ match, index, onNeedKey }) {
         </div>
       )}
 
-      <AiPanel home={match.home.name} away={match.away.name} league={match.league} onNeedKey={onNeedKey} />
+      <AiPanel home={match.home.name} away={match.away.name} league={match.league} />
     </motion.div>
   )
 }

@@ -1,4 +1,4 @@
-import { Zap, Settings, RefreshCw } from 'lucide-react'
+import { Zap, RefreshCw } from 'lucide-react'
 
 const TABS = [
   { filter: 'all', label: 'Todos', color: null },
@@ -7,7 +7,7 @@ const TABS = [
   { filter: 'risk', label: 'Arriscados', color: 'var(--risk)' },
 ]
 
-export default function Header({ filter, onFilter, onOpenSettings, onRefresh, refreshing }) {
+export default function Header({ filter, onFilter, onRefresh, refreshing }) {
   return (
     <header className="header">
       <div className="wrap">
@@ -24,9 +24,6 @@ export default function Header({ filter, onFilter, onOpenSettings, onRefresh, re
             </div>
           </div>
           <div className="head-actions">
-            <button className="iconbtn" onClick={onOpenSettings} title="Configurar análise IA">
-              <Settings size={18} />
-            </button>
             <button className="live" onClick={onRefresh} title="Atualizar dados">
               <span className="dot" />
               {refreshing ? <RefreshCw size={13} className="spin-ico" /> : 'AO VIVO'}
