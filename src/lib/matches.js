@@ -12,6 +12,25 @@ function pushForm(form, id, res) {
   if (form[id].length < 5) form[id].push(res)
 }
 
+// converte o timestamp (UTC) da API em Date local
+function tsToDate(ts) {
+  if (!ts) return null
+  const iso = ts.replace(' ', 'T')
+  const d = new Date(/[zZ]|[+\-]\d\d:?\d\d$/.test(iso) ? iso : iso + 'Z')
+  return isNaN(d) ? null : d
+}
+
+// só mostra jogos de hoje e amanhã (janela de 2 dias)
+function withinWindow(ts) {
+  const d = tsToDate(ts)
+  if (!d) return false
+  const now = new Date()
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()) // hoje 00:00
+  const end = new Date(start)
+  end.setDate(end.getDate() + 2) // exclui a partir de depois de amanhã 00:00
+  return d >= start && d < end
+}
+
 async function loadLeagueFull(lg, nextEv) {
   const season = nextEv.strSeason
   const round = parseInt(nextEv.intRound, 10)
@@ -25,7 +44,7 @@ async function loadLeagueFull(lg, nextEv) {
 
   if (!isNaN(round) && round > 1) {
     const rounds = []
-    for (let r = round - 1; r >= Math.max(1, round - 10); r--) rounds.push(r)
+    for (let r = round - 1; r >= Math.max(1, round - 6); r--) rounds.push(r)
     const past = await Promise.all(
       rounds.map((r) =>
         api(`eventsround.php?id=${lg.id}&r=${r}&s=${encodeURIComponent(season)}`).catch(() => ({ events: [] })),
@@ -59,13 +78,14 @@ async function loadLeagueFull(lg, nextEv) {
     strength[id] = { att: s.gf / g / leagueAvg || 1, def: s.ga / g / leagueAvg || 1 }
   })
 
-  // 2) jogos futuros da rodada atual (não jogados)
+  // 2) jogos futuros da rodada atual (não jogados), só de hoje/amanhã
   let fixtures = []
   if (!isNaN(round)) {
     const rd = await api(`eventsround.php?id=${lg.id}&r=${round}&s=${encodeURIComponent(season)}`)
     fixtures = (rd.events || []).filter((e) => e.intHomeScore == null || e.intHomeScore === '')
   }
-  if (!fixtures.length) fixtures = [nextEv]
+  fixtures = fixtures.filter((e) => withinWindow(e.strTimestamp))
+  if (!fixtures.length && withinWindow(nextEv.strTimestamp)) fixtures = [nextEv]
   fixtures.sort((a, b) => (a.strTimestamp || '').localeCompare(b.strTimestamp || ''))
 
   const matches = fixtures.map((e) => {
@@ -118,11 +138,14 @@ export async function loadAllLeagues() {
         .catch(() => ({ lg, ev: null })),
     ),
   )
-  const active = checks.filter((c) => c.ev).slice(0, MAX_LEAGUES_SHOWN)
+  // só ligas com o próximo jogo em até 2 dias (hoje/amanhã) — isso aplica a
+  // janela de datas E evita carregar ligas distantes (bem mais rápido).
+  const active = checks.filter((c) => c.ev && withinWindow(c.ev.strTimestamp)).slice(0, MAX_LEAGUES_SHOWN)
 
+  // sequencial p/ não estourar o rate-limit da chave gratuita (já são
+  // poucas ligas após o filtro de data).
   const groups = []
   for (const c of active) {
-    // sequencial p/ respeitar rate-limit
     try {
       const g = await loadLeagueFull(c.lg, c.ev)
       if (g && g.matches.length) groups.push(g)
@@ -134,7 +157,7 @@ export async function loadAllLeagues() {
   if (!groups.length) {
     return {
       groups: [],
-      error: 'Nenhuma liga com jogos futuros disponível no momento (temporadas podem estar em recesso).',
+      error: 'Sem jogos para hoje ou amanhã no momento. Volte mais perto da próxima rodada.',
     }
   }
   return { groups, error: null }

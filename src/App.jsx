@@ -45,8 +45,8 @@ export default function App() {
         ) : (
           <>
             <p className="intro">
-              Probabilidades por modelo estatístico (Poisson) a partir de <b>dados reais</b> de classificação,
-              força ofensiva/defensiva e forma recente. Toque em <b>+ Bilhete</b> para montar sua aposta.
+              Jogos de <b>hoje e amanhã</b> com probabilidades por modelo estatístico (Poisson) a partir de{' '}
+              <b>dados reais</b> de classificação, força e forma. Toque em <b>+ Bilhete</b> para montar sua aposta.
             </p>
 
             {loading && (
