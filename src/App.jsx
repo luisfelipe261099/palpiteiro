@@ -1,30 +1,43 @@
 import { useState, useMemo } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import Header from './components/Header.jsx'
+import SearchBar from './components/SearchBar.jsx'
 import LeagueGroup from './components/LeagueGroup.jsx'
 import ReadyTickets from './components/ReadyTickets.jsx'
 import BetSlip from './components/BetSlip.jsx'
 import { useMatches } from './hooks/useMatches.js'
 import { predict, bestPick, tier } from './lib/poisson.js'
 
+const norm = (s) =>
+  s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+
 export default function App() {
   const { groups, loading, error, reload } = useMatches()
   const [view, setView] = useState('matches') // matches | ready
   const [filter, setFilter] = useState('all')
+  const [query, setQuery] = useState('')
 
-  // aplica o filtro de risco por grupo
+  // aplica filtro de risco + busca por texto (time, jogo ou liga)
   const filtered = useMemo(() => {
-    if (filter === 'all') return groups
+    const q = norm(query.trim())
+    if (filter === 'all' && !q) return groups
     return groups
       .map((g) => ({
         ...g,
         matches: g.matches.filter((m) => {
-          const pr = predict(m)
-          return tier(bestPick(pr, m).p).cls === filter
+          if (filter !== 'all' && tier(bestPick(predict(m), m).p).cls !== filter) return false
+          if (q) {
+            const hay = norm(`${m.home.name} ${m.away.name} ${m.home.short} ${m.away.short} ${g.name}`)
+            if (!hay.includes(q)) return false
+          }
+          return true
         }),
       }))
       .filter((g) => g.matches.length)
-  }, [groups, filter])
+  }, [groups, filter, query])
 
   let runningIndex = 0
 
@@ -49,6 +62,8 @@ export default function App() {
               <b>dados reais</b> de classificação, força e forma. Toque em <b>+ Bilhete</b> para montar sua aposta.
             </p>
 
+            {!loading && !error && groups.length > 0 && <SearchBar value={query} onChange={setQuery} />}
+
             {loading && (
               <>
                 <div className="state">
@@ -72,7 +87,9 @@ export default function App() {
 
             {!loading && !error && filtered.length === 0 && (
               <p className="intro" style={{ textAlign: 'center', padding: '30px 0' }}>
-                Nenhum jogo nesta categoria agora.
+                {query.trim()
+                  ? `Nenhum jogo encontrado para “${query.trim()}”.`
+                  : 'Nenhum jogo nesta categoria agora.'}
               </p>
             )}
 

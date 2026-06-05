@@ -253,6 +253,55 @@ img {
   border-radius: 50%;
 }
 
+/* ---------------- SEARCH ---------------- */
+.search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: var(--glass);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r-pill);
+  padding: 0 15px;
+  height: 46px;
+  margin: 6px 0 14px;
+  transition: 0.18s;
+}
+.search:focus-within {
+  border-color: var(--accent);
+  background: var(--glass-2);
+}
+.search-ico {
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+.search input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  color: var(--txt);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+}
+.search input:focus {
+  outline: none;
+}
+.search input::placeholder {
+  color: var(--muted);
+}
+.search-clear {
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  padding: 4px;
+  flex: 0 0 auto;
+  transition: 0.15s;
+}
+.search-clear:hover {
+  color: var(--txt);
+}
+
 /* ---------------- INTRO ---------------- */
 .intro {
   font-size: 13.5px;
