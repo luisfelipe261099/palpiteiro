@@ -1,9 +1,9 @@
 {
-  "name": "palpiteiro",
+  "name": "luispalpite",
   "private": true,
   "version": "2.0.0",
   "type": "module",
-  "description": "Palpiteiro — palpites de futebol com dados reais e modelo estatístico (React + Vite)",
+  "description": "LuisPalpite — palpites de futebol com dados reais e modelo estatístico (React + Vite)",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

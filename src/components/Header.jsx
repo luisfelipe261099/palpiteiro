@@ -18,7 +18,7 @@ export default function Header({ filter, onFilter, onOpenSettings, onRefresh, re
             </div>
             <div>
               <div className="title">
-                Palpiteiro<span className="accent"> ⚡</span>
+                LuisPalpite<span className="accent"> ⚡</span>
               </div>
               <div className="sub">Estatísticas & palpites · dados reais</div>
             </div>

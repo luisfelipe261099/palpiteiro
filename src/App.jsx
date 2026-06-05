@@ -95,7 +95,7 @@ export default function App() {
         </div>
 
         <footer className="footer">
-          Palpiteiro ⚡ · Dados ao vivo via <b>TheSportsDB</b> · Análise IA via <b>Google Gemini</b>.
+          LuisPalpite ⚡ · Dados ao vivo via <b>TheSportsDB</b> · Análise IA via <b>Google Gemini</b>.
           <br />
           Feito para fins informativos e de entretenimento.
         </footer>
