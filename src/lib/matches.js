@@ -7,6 +7,10 @@ import { LEAGUES, MAX_LEAGUES_SHOWN } from './leagues.js'
 import { abbr, colorFor, fmtTime } from './format.js'
 import { natStrength } from './nationalStrength.js'
 
+// índice id-da-liga -> metadados, para reconhecer os jogos vindos do
+// endpoint global de "jogos do dia".
+const LEAGUE_BY_ID = new Map(LEAGUES.map((lg) => [String(lg.id), lg]))
+
 function pushForm(form, id, res) {
   if (!form[id]) form[id] = []
   if (form[id].length < 5) form[id].push(res)
@@ -34,28 +38,59 @@ function eventTimestamp(e) {
 }
 
 // só mostra jogos de hoje e amanhã (janela de 2 dias)
-function withinWindow(ts) {
+const WINDOW_DAYS = 2
+// copas/seleções (Copa do Mundo, Eurocopa, Mundial de Clubes, mata-matas
+// europeus) são torneios concentrados e de alto interesse que começam numa
+// data fixa. Mostramos seus próximos jogos com mais antecedência para que a
+// Copa apareça mesmo faltando alguns dias para a estreia.
+const CUP_LOOKAHEAD_DAYS = 10
+
+function withinWindow(ts, days = WINDOW_DAYS) {
   const d = tsToDate(ts)
   if (!d) return false
   const now = new Date()
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()) // hoje 00:00
   const end = new Date(start)
-  end.setDate(end.getDate() + 2) // exclui a partir de depois de amanhã 00:00
+  end.setDate(end.getDate() + days) // exclui a partir de days dias depois, 00:00
   return d >= start && d < end
 }
 
-async function loadLeagueFull(lg, nextEv) {
-  const season = nextEv.strSeason
-  const round = parseInt(nextEv.intRound, 10)
-  const isNation = lg.kind === 'nation' // Copa do Mundo / Eurocopa
+// uma competição é tratada como "copa" (janela ampliada) quando é de seleções
+// (kind 'nation') ou está marcada com `cup: true` em leagues.js.
+function isCupLeague(lg) {
+  return lg.kind === 'nation' || lg.cup === true
+}
 
-  // 1) estatísticas (att/def) + forma a partir dos resultados reais
+// um jogo só é "futuro" (palpitável) enquanto ainda não tem placar.
+function isUnplayed(e) {
+  return e.intHomeScore == null || e.intHomeScore === ''
+}
+
+// datas (YYYY-MM-DD em UTC) que cobrem a janela local de hoje+amanhã.
+// A janela local pode tocar até 3 datas UTC distintas conforme o fuso, então
+// varremos de -1 a +2 dias para não perder jogos nas bordas.
+function windowDates() {
+  const now = new Date()
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const set = new Set()
+  for (let i = -1; i <= 2; i++) {
+    const d = new Date(start.getTime() + i * 86400000)
+    set.add(
+      `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`,
+    )
+  }
+  return [...set]
+}
+
+// força ofensiva/defensiva + forma a partir dos resultados reais das últimas
+// rodadas (eventsround.php vem completo mesmo na chave gratuita).
+async function computeStrength(lg, season, round) {
   const stat = {}
   const form = {}
   let totGoals = 0
   let totTeamGames = 0
 
-  if (!isNaN(round) && round > 1) {
+  if (!isNaN(round) && round > 1 && season) {
     const rounds = []
     for (let r = round - 1; r >= Math.max(1, round - 6); r--) rounds.push(r)
     const past = await Promise.all(
@@ -90,18 +125,13 @@ async function loadLeagueFull(lg, nextEv) {
     const g = Math.max(1, s.g)
     strength[id] = { att: s.gf / g / leagueAvg || 1, def: s.ga / g / leagueAvg || 1 }
   })
+  return { strength, form, leagueAvg }
+}
 
-  // 2) jogos futuros da rodada atual (não jogados), só de hoje/amanhã
-  let fixtures = []
-  if (!isNaN(round)) {
-    const rd = await api(`eventsround.php?id=${lg.id}&r=${round}&s=${encodeURIComponent(season)}`)
-    fixtures = (rd.events || []).filter((e) => e.intHomeScore == null || e.intHomeScore === '')
-  }
-  fixtures = fixtures.filter((e) => withinWindow(eventTimestamp(e)))
-  if (!fixtures.length && withinWindow(eventTimestamp(nextEv))) fixtures = [nextEv]
-  fixtures.sort((a, b) => (eventTimestamp(a) || '').localeCompare(eventTimestamp(b) || ''))
-
-  const matches = fixtures.map((e) => {
+// monta os cards de jogo a partir de uma lista de fixtures já filtrada.
+function buildMatches(lg, fixtures, strength, form, leagueAvg) {
+  const isNation = lg.kind === 'nation' // Copa do Mundo / Eurocopa
+  return fixtures.map((e) => {
     // histórico no torneio tem prioridade; em competição de seleções sem
     // histórico, usa a força por ranking (proxy FIFA) como fallback.
     const hs = strength[e.idHomeTeam] || (isNation ? natStrength(e.strHomeTeam) : null)
@@ -137,13 +167,70 @@ async function loadLeagueFull(lg, nextEv) {
       },
     }
   })
+}
 
+// monta uma liga a partir das fixtures de hoje/amanhã já descobertas
+// (caminho principal, via eventsday.php).
+async function loadLeagueFromFixtures(lg, fixtures) {
+  fixtures.sort((a, b) => (eventTimestamp(a) || '').localeCompare(eventTimestamp(b) || ''))
+  const first = fixtures[0]
+  const season = first.strSeason
+  const round = parseInt(first.intRound, 10)
+  const { strength, form, leagueAvg } = await computeStrength(lg, season, round)
+  const matches = buildMatches(lg, fixtures, strength, form, leagueAvg)
   return { id: lg.id, name: lg.local, flag: lg.flag, matches }
 }
 
-// Carrega todas as ligas ativas. Retorna { groups, error }.
-export async function loadAllLeagues() {
-  // detecta ligas ativas (1 chamada cada, em paralelo)
+// caminho de fallback: parte de um "próximo jogo" (eventsnextleague.php) e
+// busca a rodada atual via eventsround.php.
+async function loadLeagueFull(lg, nextEv) {
+  const season = nextEv.strSeason
+  const round = parseInt(nextEv.intRound, 10)
+  const { strength, form, leagueAvg } = await computeStrength(lg, season, round)
+
+  // jogos futuros da rodada atual (não jogados), só de hoje/amanhã
+  let fixtures = []
+  if (!isNaN(round)) {
+    const rd = await api(`eventsround.php?id=${lg.id}&r=${round}&s=${encodeURIComponent(season)}`)
+    fixtures = (rd.events || []).filter(isUnplayed)
+  }
+  fixtures = fixtures.filter((e) => withinWindow(eventTimestamp(e)))
+  if (!fixtures.length && withinWindow(eventTimestamp(nextEv))) fixtures = [nextEv]
+  fixtures.sort((a, b) => (eventTimestamp(a) || '').localeCompare(eventTimestamp(b) || ''))
+
+  const matches = buildMatches(lg, fixtures, strength, form, leagueAvg)
+  return { id: lg.id, name: lg.local, flag: lg.flag, matches }
+}
+
+// Descobre os jogos de hoje/amanhã das ligas conhecidas via eventsday.php.
+// Esse endpoint NÃO vem truncado na chave gratuita e lista todos os jogos de
+// futebol de uma data — bem mais confiável que eventsnextleague.php (que na
+// chave "3" retorna só 1 evento e pode apontar para um jogo fora da janela).
+// Retorna um Map id-da-liga -> { lg, fixtures }.
+async function discoverViaEventsDay() {
+  const dates = windowDates()
+  const days = await Promise.all(
+    dates.map((d) => api(`eventsday.php?d=${d}&s=Soccer`).catch(() => ({ events: [] }))),
+  )
+  const byLeague = new Map()
+  const seen = new Set()
+  for (const day of days) {
+    for (const e of day.events || []) {
+      const lg = LEAGUE_BY_ID.get(String(e.idLeague))
+      if (!lg) continue
+      if (!withinWindow(eventTimestamp(e))) continue
+      if (!isUnplayed(e)) continue // só jogos ainda não realizados
+      if (seen.has(e.idEvent)) continue
+      seen.add(e.idEvent)
+      if (!byLeague.has(lg.id)) byLeague.set(lg.id, { lg, fixtures: [] })
+      byLeague.get(lg.id).fixtures.push(e)
+    }
+  }
+  return byLeague
+}
+
+// Fallback: detecta ligas ativas via eventsnextleague.php (1 chamada cada).
+async function loadViaNextLeague() {
   const checks = await Promise.all(
     LEAGUES.map((lg) =>
       api(`eventsnextleague.php?id=${lg.id}`)
@@ -155,12 +242,9 @@ export async function loadAllLeagues() {
         .catch(() => ({ lg, ev: null })),
     ),
   )
-  // só ligas com o próximo jogo em até 2 dias (hoje/amanhã) — isso aplica a
-  // janela de datas E evita carregar ligas distantes (bem mais rápido).
+  // só ligas com o próximo jogo em até 2 dias (hoje/amanhã)
   const active = checks.filter((c) => c.ev && withinWindow(eventTimestamp(c.ev))).slice(0, MAX_LEAGUES_SHOWN)
 
-  // sequencial p/ não estourar o rate-limit da chave gratuita (já são
-  // poucas ligas após o filtro de data).
   const groups = []
   for (const c of active) {
     try {
@@ -168,6 +252,100 @@ export async function loadAllLeagues() {
       if (g && g.matches.length) groups.push(g)
     } catch {
       /* ignora liga que falhou */
+    }
+  }
+  return groups
+}
+
+// Descoberta de copa com janela ampliada: parte do próximo jogo da competição
+// (eventsnextleague — basta 1 evento para saber temporada/rodada) e carrega a
+// rodada inteira via eventsround.php (não truncado), filtrando para a janela
+// ampliada de copas. Assim a Copa do Mundo aparece mesmo faltando dias para a
+// estreia, com TODOS os jogos da rodada, não só o de abertura.
+async function discoverCupWide(lg) {
+  let nextEv = null
+  try {
+    const d = await api(`eventsnextleague.php?id=${lg.id}`)
+    const events = (d && d.events) || []
+    nextEv =
+      events.find((e) => isUnplayed(e) && withinWindow(eventTimestamp(e), CUP_LOOKAHEAD_DAYS)) || null
+  } catch {
+    nextEv = null
+  }
+  if (!nextEv) return null
+
+  const season = nextEv.strSeason
+  const round = parseInt(nextEv.intRound, 10)
+  let fixtures = []
+  if (!isNaN(round) && season) {
+    try {
+      const rd = await api(`eventsround.php?id=${lg.id}&r=${round}&s=${encodeURIComponent(season)}`)
+      fixtures = (rd.events || []).filter(isUnplayed)
+    } catch {
+      fixtures = []
+    }
+  }
+  fixtures = fixtures.filter((e) => withinWindow(eventTimestamp(e), CUP_LOOKAHEAD_DAYS))
+  // sem rodada utilizável: ao menos mostra o próximo jogo conhecido.
+  if (!fixtures.length && withinWindow(eventTimestamp(nextEv), CUP_LOOKAHEAD_DAYS)) fixtures = [nextEv]
+  return fixtures.length ? { lg, fixtures } : null
+}
+
+// Carrega todas as ligas ativas. Retorna { groups, error }.
+export async function loadAllLeagues() {
+  const byLeague = new Map()
+
+  // 1) jogos de hoje/amanhã de todas as ligas (endpoint não truncado)
+  try {
+    for (const [id, v] of await discoverViaEventsDay()) byLeague.set(id, v)
+  } catch {
+    /* segue para os outros caminhos */
+  }
+
+  // 2) copas/seleções: janela ampliada (a Copa só começa numa data fixa, então
+  //    mostramos seus próximos jogos com mais antecedência). Sequencial para
+  //    não estourar o rate-limit da chave gratuita; competições em recesso
+  //    saem cedo (sem jogo na janela) sem custo extra.
+  for (const lg of LEAGUES.filter(isCupLeague)) {
+    let res = null
+    try {
+      res = await discoverCupWide(lg)
+    } catch {
+      res = null
+    }
+    if (!res) continue
+    const existing = byLeague.get(lg.id)
+    if (existing) {
+      const seen = new Set(existing.fixtures.map((e) => e.idEvent))
+      for (const e of res.fixtures) if (!seen.has(e.idEvent)) existing.fixtures.push(e)
+    } else {
+      byLeague.set(lg.id, res)
+    }
+  }
+
+  let groups = []
+  if (byLeague.size) {
+    // respeita a ordem de prioridade de LEAGUES (copas primeiro) e limita a
+    // carga para não estourar o rate-limit da chave gratuita.
+    const active = LEAGUES.map((lg) => byLeague.get(lg.id))
+      .filter(Boolean)
+      .slice(0, MAX_LEAGUES_SHOWN)
+    for (const { lg, fixtures } of active) {
+      try {
+        const g = await loadLeagueFromFixtures(lg, fixtures)
+        if (g && g.matches.length) groups.push(g)
+      } catch {
+        /* ignora liga que falhou */
+      }
+    }
+  }
+
+  // 3) fallback: se nada foi descoberto, usa eventsnextleague
+  if (!groups.length) {
+    try {
+      groups = await loadViaNextLeague()
+    } catch {
+      groups = []
     }
   }
 

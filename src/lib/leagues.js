@@ -14,12 +14,12 @@ export const LEAGUES = [
   // ── Seleções / mundiais ── (kind 'nation' usa força por ranking quando
   //    ainda não há histórico no torneio)
   { id: '4429', name: 'FIFA World Cup', local: 'Copa do Mundo', flag: '🏆', kind: 'nation' },
-  { id: '4503', name: 'FIFA Club World Cup', local: 'Mundial de Clubes', flag: '🌍' },
+  { id: '4503', name: 'FIFA Club World Cup', local: 'Mundial de Clubes', flag: '🌍', cup: true },
   { id: '4502', name: 'UEFA European Championship', local: 'Eurocopa', flag: '🇪🇺', kind: 'nation' },
   // ── Continentais de clubes (Europa) ──
-  { id: '4480', name: 'UEFA Champions League', local: 'Champions League', flag: '⭐' },
-  { id: '4481', name: 'UEFA Europa League', local: 'Europa League', flag: '🟠' },
-  { id: '5071', name: 'UEFA Conference League', local: 'Conference League', flag: '🟢' },
+  { id: '4480', name: 'UEFA Champions League', local: 'Champions League', flag: '⭐', cup: true },
+  { id: '4481', name: 'UEFA Europa League', local: 'Europa League', flag: '🟠', cup: true },
+  { id: '5071', name: 'UEFA Conference League', local: 'Conference League', flag: '🟢', cup: true },
   // ── Ligas nacionais ──
   { id: '4351', name: 'Brazilian Serie A', local: 'Brasileirão Série A', flag: '🇧🇷' },
   { id: '4350', name: 'Brazilian Serie B', local: 'Brasileirão Série B', flag: '🇧🇷' },
