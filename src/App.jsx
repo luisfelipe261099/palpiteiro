@@ -6,7 +6,6 @@ import LeagueGroup from './components/LeagueGroup.jsx'
 import ReadyTickets from './components/ReadyTickets.jsx'
 import BetSlip from './components/BetSlip.jsx'
 import { useMatches } from './hooks/useMatches.js'
-import { predict, bestPick, tier } from './lib/poisson.js'
 
 const norm = (s) =>
   s
@@ -17,27 +16,22 @@ const norm = (s) =>
 export default function App() {
   const { groups, loading, error, reload } = useMatches()
   const [view, setView] = useState('matches') // matches | ready
-  const [filter, setFilter] = useState('all')
   const [query, setQuery] = useState('')
 
-  // aplica filtro de risco + busca por texto (time, jogo ou liga)
+  // aplica busca por texto (time, jogo ou liga)
   const filtered = useMemo(() => {
     const q = norm(query.trim())
-    if (filter === 'all' && !q) return groups
+    if (!q) return groups
     return groups
       .map((g) => ({
         ...g,
         matches: g.matches.filter((m) => {
-          if (filter !== 'all' && tier(bestPick(predict(m), m).p).cls !== filter) return false
-          if (q) {
-            const hay = norm(`${m.home.name} ${m.away.name} ${m.home.short} ${m.away.short} ${g.name}`)
-            if (!hay.includes(q)) return false
-          }
-          return true
+          const hay = norm(`${m.home.name} ${m.away.name} ${m.home.short} ${m.away.short} ${g.name}`)
+          return hay.includes(q)
         }),
       }))
       .filter((g) => g.matches.length)
-  }, [groups, filter, query])
+  }, [groups, query])
 
   let runningIndex = 0
 
@@ -46,8 +40,6 @@ export default function App() {
       <Header
         view={view}
         onView={setView}
-        filter={filter}
-        onFilter={setFilter}
         onRefresh={() => reload({ fresh: true })}
         refreshing={loading}
       />
@@ -89,7 +81,7 @@ export default function App() {
               <p className="intro" style={{ textAlign: 'center', padding: '30px 0' }}>
                 {query.trim()
                   ? `Nenhum jogo encontrado para “${query.trim()}”.`
-                  : 'Nenhum jogo nesta categoria agora.'}
+                  : 'Nenhum jogo disponível agora.'}
               </p>
             )}
 

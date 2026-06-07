@@ -1,13 +1,6 @@
 import { Zap, RefreshCw, Swords, Ticket } from 'lucide-react'
 
-const TABS = [
-  { filter: 'all', label: 'Todos', color: null },
-  { filter: 'safe', label: 'Seguros', color: 'var(--safe)' },
-  { filter: 'mid', label: 'Médios', color: 'var(--mid)' },
-  { filter: 'risk', label: 'Arriscados', color: 'var(--risk)' },
-]
-
-export default function Header({ view, onView, filter, onFilter, onRefresh, refreshing }) {
+export default function Header({ view, onView, onRefresh, refreshing }) {
   return (
     <header className="header">
       <div className="wrap">
@@ -38,22 +31,6 @@ export default function Header({ view, onView, filter, onFilter, onRefresh, refr
             <Ticket size={15} /> Bilhetes do dia
           </button>
         </div>
-
-        {view === 'matches' && (
-          <div className="tabs">
-            {TABS.map((t) => (
-              <button
-                key={t.filter}
-                className="tab"
-                data-active={filter === t.filter}
-                onClick={() => onFilter(t.filter)}
-              >
-                {t.color && <span className="cdot" style={{ background: t.color }} />}
-                {t.label}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
     </header>
   )
