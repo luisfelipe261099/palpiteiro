@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Ticket, X } from 'lucide-react'
+import { ExternalLink, Ticket, X } from 'lucide-react'
 import { useBetSlip } from '../context/BetSlipContext.jsx'
 import StakeSimulator from './StakeSimulator.jsx'
+import { openBetano } from '../lib/betano.js'
 
 export default function BetSlip() {
   const [open, setOpen] = useState(false)
@@ -59,6 +60,10 @@ export default function BetSlip() {
         {picks.length > 0 ? (
           <>
             <StakeSimulator odd={totals.odd} prob={totals.prob} />
+            <button className="ready-betano-btn" onClick={openBetano}>
+              <ExternalLink size={15} />
+              Abrir Betano
+            </button>
             <button className="clearbtn" onClick={clear}>
               Limpar bilhete
             </button>
