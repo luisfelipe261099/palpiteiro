@@ -1,4 +1,4 @@
-import { Zap, RefreshCw, Swords, Ticket } from 'lucide-react'
+import { RefreshCw, Swords, Ticket } from 'lucide-react'
 
 export default function Header({ view, onView, onRefresh, refreshing }) {
   return (
@@ -7,11 +7,11 @@ export default function Header({ view, onView, onRefresh, refreshing }) {
         <div className="topbar">
           <div className="brand">
             <div className="logo">
-              <Zap size={22} fill="#04140d" />
+              <img src="/nezaopalpite-logo.svg" alt="Logo Nezaopalpite" />
             </div>
             <div>
               <div className="title">
-                LuisPalpite<span className="accent"> ⚡</span>
+                Nezaopalpite<span className="accent"> ⚡</span>
               </div>
               <div className="sub">Estatísticas & palpites · dados reais</div>
             </div>

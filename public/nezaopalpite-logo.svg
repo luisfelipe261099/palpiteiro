@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="logoTitle logoDesc">
+  <title id="logoTitle">Logo Nezaopalpite</title>
+  <desc id="logoDesc">Escudo verde com bola e letra N estilizada.</desc>
+  <defs>
+    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#cbff3f" />
+      <stop offset="100%" stop-color="#6ecf2d" />
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="124" height="124" rx="32" fill="#09120d" />
+  <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#g1)" />
+  <circle cx="90" cy="36" r="18" fill="#09120d" />
+  <circle cx="90" cy="36" r="13" fill="#f5ffd3" />
+  <path d="M30 92V36h13l28 34V36h13v56H71L43 58v34z" fill="#09120d" />
+</svg>

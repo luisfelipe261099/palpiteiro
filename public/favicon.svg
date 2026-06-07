@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="iconTitle">
+  <title id="iconTitle">Ícone Nezaopalpite</title>
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#cbff3f" />
+      <stop offset="100%" stop-color="#6ecf2d" />
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="#09120d" />
+  <rect x="6" y="6" width="52" height="52" rx="13" fill="url(#g)" />
+  <path d="M16 46V18h7l18 20V18h7v28h-7L23 26v20z" fill="#09120d" />
+</svg>
