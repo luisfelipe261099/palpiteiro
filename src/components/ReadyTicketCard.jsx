@@ -17,7 +17,7 @@ export default function ReadyTicketCard({ ticket, index }) {
       odd: g.odd,
     }))
     replace(readyPicks)
-    window.open(BETANO_URL, '_blank', 'noopener,noreferrer')
+    window.location.assign(BETANO_URL)
   }
 
   return (
