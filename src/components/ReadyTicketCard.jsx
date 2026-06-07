@@ -1,7 +1,25 @@
 import { motion } from 'framer-motion'
+import { ExternalLink } from 'lucide-react'
 import StakeSimulator from './StakeSimulator.jsx'
+import { useBetSlip } from '../context/BetSlipContext.jsx'
+
+const BETANO_URL = 'https://www.betano.bet.br/'
 
 export default function ReadyTicketCard({ ticket, index }) {
+  const { replace } = useBetSlip()
+
+  const openBetanoWithTicket = () => {
+    const readyPicks = ticket.games.map((g) => ({
+      id: `${g.matchId}:${g.pickLabel}`,
+      match: g.match,
+      pickLabel: g.pickLabel,
+      p: g.p,
+      odd: g.odd,
+    }))
+    replace(readyPicks)
+    window.open(BETANO_URL, '_blank', 'noopener,noreferrer')
+  }
+
   return (
     <motion.div
       className="card"
@@ -33,6 +51,10 @@ export default function ReadyTicketCard({ ticket, index }) {
       </div>
 
       <StakeSimulator odd={ticket.odd} prob={ticket.prob} />
+      <button className="ready-betano-btn" onClick={openBetanoWithTicket}>
+        <ExternalLink size={15} />
+        Fazer bilhete e abrir Betano
+      </button>
     </motion.div>
   )
 }
