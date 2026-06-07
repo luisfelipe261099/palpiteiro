@@ -3,6 +3,8 @@ import { ExternalLink } from 'lucide-react'
 import StakeSimulator from './StakeSimulator.jsx'
 import { useBetSlip } from '../context/BetSlipContext.jsx'
 
+const BETANO_URL = 'https://www.betano.bet.br/'
+
 export default function ReadyTicketCard({ ticket, index }) {
   const { replace } = useBetSlip()
 
@@ -15,7 +17,7 @@ export default function ReadyTicketCard({ ticket, index }) {
       odd: g.odd,
     }))
     replace(readyPicks)
-    window.open('https://www.betano.bet.br/', '_blank', 'noopener,noreferrer')
+    window.open(BETANO_URL, '_blank', 'noopener,noreferrer')
   }
 
   return (
