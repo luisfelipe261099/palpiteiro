@@ -3,13 +3,11 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ExternalLink, Ticket, X } from 'lucide-react'
 import { useBetSlip } from '../context/BetSlipContext.jsx'
 import StakeSimulator from './StakeSimulator.jsx'
-
-const BETANO_URL = 'https://www.betano.bet.br/sport'
+import { openBetano } from '../lib/betano.js'
 
 export default function BetSlip() {
   const [open, setOpen] = useState(false)
   const { picks, remove, clear, totals } = useBetSlip()
-  const openBetano = () => window.location.assign(BETANO_URL)
 
   return (
     <motion.div
