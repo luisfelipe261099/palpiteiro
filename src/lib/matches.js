@@ -147,7 +147,11 @@ export async function loadAllLeagues() {
   const checks = await Promise.all(
     LEAGUES.map((lg) =>
       api(`eventsnextleague.php?id=${lg.id}`)
-        .then((d) => ({ lg, ev: (d && d.events && d.events[0]) || null }))
+        .then((d) => {
+          const events = (d && d.events) || []
+          const ev = events.find((e) => withinWindow(eventTimestamp(e))) || null
+          return { lg, ev }
+        })
         .catch(() => ({ lg, ev: null })),
     ),
   )
