@@ -20,6 +20,18 @@ function tsToDate(ts) {
   return isNaN(d) ? null : d
 }
 
+// extrai o melhor timestamp disponível de um evento da API.
+// strTimestamp pode ser null; nesse caso usa dateEvent + strTime como fallback.
+// Quando o horário não é conhecido, usa 12:00:00 para evitar problemas de
+// fuso horário nas comparações de janela (um jogo com data "amanhã" não seria
+// excluído por cair antes de meia-noite UTC+0).
+function eventTimestamp(e) {
+  if (e.strTimestamp) return e.strTimestamp
+  if (!e.dateEvent) return null
+  const time = e.strTime || '12:00:00'
+  return `${e.dateEvent} ${time}`
+}
+
 // só mostra jogos de hoje e amanhã (janela de 2 dias)
 function withinWindow(ts) {
   const d = tsToDate(ts)
@@ -84,9 +96,9 @@ async function loadLeagueFull(lg, nextEv) {
     const rd = await api(`eventsround.php?id=${lg.id}&r=${round}&s=${encodeURIComponent(season)}`)
     fixtures = (rd.events || []).filter((e) => e.intHomeScore == null || e.intHomeScore === '')
   }
-  fixtures = fixtures.filter((e) => withinWindow(e.strTimestamp))
-  if (!fixtures.length && withinWindow(nextEv.strTimestamp)) fixtures = [nextEv]
-  fixtures.sort((a, b) => (a.strTimestamp || '').localeCompare(b.strTimestamp || ''))
+  fixtures = fixtures.filter((e) => withinWindow(eventTimestamp(e)))
+  if (!fixtures.length && withinWindow(eventTimestamp(nextEv))) fixtures = [nextEv]
+  fixtures.sort((a, b) => (eventTimestamp(a) || '').localeCompare(eventTimestamp(b) || ''))
 
   const matches = fixtures.map((e) => {
     // histórico no torneio tem prioridade; em competição de seleções sem
@@ -103,7 +115,7 @@ async function loadLeagueFull(lg, nextEv) {
       predictable: !!(hs && as),
       // jogo de seleção em sede neutra: sem vantagem de mando.
       homeAdv: isNation ? 1.0 : undefined,
-      time: fmtTime(e.strTimestamp),
+      time: fmtTime(eventTimestamp(e)),
       home: {
         name: e.strHomeTeam,
         short: abbr(e.strHomeTeam),
@@ -140,7 +152,7 @@ export async function loadAllLeagues() {
   )
   // só ligas com o próximo jogo em até 2 dias (hoje/amanhã) — isso aplica a
   // janela de datas E evita carregar ligas distantes (bem mais rápido).
-  const active = checks.filter((c) => c.ev && withinWindow(c.ev.strTimestamp)).slice(0, MAX_LEAGUES_SHOWN)
+  const active = checks.filter((c) => c.ev && withinWindow(eventTimestamp(c.ev))).slice(0, MAX_LEAGUES_SHOWN)
 
   // sequencial p/ não estourar o rate-limit da chave gratuita (já são
   // poucas ligas após o filtro de data).
