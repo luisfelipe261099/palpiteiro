@@ -26,6 +26,7 @@ function tsToDate(ts) {
 // fuso horário nas comparações de janela (um jogo com data "amanhã" não seria
 // excluído por cair antes de meia-noite UTC+0).
 function eventTimestamp(e) {
+  if (!e) return null
   if (e.strTimestamp) return e.strTimestamp
   if (!e.dateEvent) return null
   const time = e.strTime || '12:00:00'
