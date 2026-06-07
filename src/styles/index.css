@@ -711,6 +711,20 @@ img {
   font-weight: 800;
   color: var(--accent);
 }
+.ready-betano-btn {
+  width: 100%;
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: var(--accent-grad);
+  color: #04140d;
+  border-radius: var(--r-sm);
+  padding: 11px 14px;
+  font-size: 13px;
+  font-weight: 800;
+}
 
 /* ---------------- STAKE SIMULATOR ---------------- */
 .stake {

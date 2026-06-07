@@ -32,6 +32,7 @@ export function BetSlipProvider({ children }) {
 
   const remove = useCallback((id) => setPicks((prev) => prev.filter((p) => p.id !== id)), [])
   const clear = useCallback(() => setPicks([]), [])
+  const replace = useCallback((nextPicks) => setPicks(nextPicks), [])
   const has = useCallback((id) => picks.some((p) => p.id === id), [picks])
 
   const totals = useMemo(() => {
@@ -50,8 +51,8 @@ export function BetSlipProvider({ children }) {
   }, [picks])
 
   const value = useMemo(
-    () => ({ picks, toggle, remove, clear, has, totals }),
-    [picks, toggle, remove, clear, has, totals],
+    () => ({ picks, toggle, remove, clear, replace, has, totals }),
+    [picks, toggle, remove, clear, replace, has, totals],
   )
 
   return <BetSlipContext.Provider value={value}>{children}</BetSlipContext.Provider>
