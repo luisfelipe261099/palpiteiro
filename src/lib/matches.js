@@ -154,6 +154,7 @@ function buildMatches(lg, fixtures, strength, form, leagueAvg) {
       preliminary: !homeReal && !awayReal,
       // jogo de seleção em sede neutra: sem vantagem de mando.
       homeAdv: isNation ? 1.0 : undefined,
+      ts: eventTimestamp(e), // timestamp bruto p/ ordenar jogos/grupos por data
       time: fmtTime(eventTimestamp(e)),
       home: {
         name: e.strHomeTeam,
@@ -363,5 +364,18 @@ export async function loadAllLeagues() {
       error: 'Sem jogos para hoje ou amanhã no momento. Volte mais perto da próxima rodada.',
     }
   }
+
+  // ordena os grupos pelo jogo mais cedo: assim a liga com jogos de HOJE aparece
+  // primeiro (ex.: amistosos de hoje antes da Copa do Mundo, que começa dias depois).
+  const earliestMs = (g) => {
+    let min = Infinity
+    for (const m of g.matches) {
+      const d = tsToDate(m.ts)
+      if (d) min = Math.min(min, d.getTime())
+    }
+    return min
+  }
+  groups.sort((a, b) => earliestMs(a) - earliestMs(b))
+
   return { groups, error: null }
 }
