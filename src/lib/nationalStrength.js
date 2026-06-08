@@ -31,3 +31,11 @@ const BY_TEAM = {
 export function natStrength(name) {
   return BY_TEAM[name] || DEFAULT
 }
+
+// Versão estrita: só retorna força quando a seleção está na lista curada
+// (ranking conhecido), senão null. Serve para distinguir um palpite com lastro
+// real de um fallback genérico (ex.: amistoso entre seleções de base / pequenas
+// sem ranking). Os bilhetes do dia usam isso para não recomendar jogos sem dado.
+export function natStrengthKnown(name) {
+  return BY_TEAM[name] || null
+}

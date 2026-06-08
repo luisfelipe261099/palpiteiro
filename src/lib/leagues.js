@@ -14,6 +14,11 @@ export const LEAGUES = [
   // ── Seleções / mundiais ── (kind 'nation' usa força por ranking quando
   //    ainda não há histórico no torneio)
   { id: '4429', name: 'FIFA World Cup', local: 'Copa do Mundo', flag: '🏆', kind: 'nation' },
+  // Amistosos de seleções (datas FIFA). 'nation' => janela ampliada + força por
+  // ranking, então os amistosos do dia aparecem mesmo com os campeonatos
+  // nacionais em recesso (ex.: durante a Copa). Inclui Sub-20/21 e seleções
+  // menores, que ficam com força padrão (palpite preliminar).
+  { id: '4562', name: 'International Friendlies', local: 'Amistosos de Seleções', flag: '🤝', kind: 'nation' },
   { id: '4503', name: 'FIFA Club World Cup', local: 'Mundial de Clubes', flag: '🌍', cup: true },
   { id: '4502', name: 'UEFA European Championship', local: 'Eurocopa', flag: '🇪🇺', kind: 'nation' },
   // ── Continentais de clubes (Europa) ──

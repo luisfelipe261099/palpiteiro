@@ -5,7 +5,7 @@
 import { api } from './api.js'
 import { LEAGUES, MAX_LEAGUES_SHOWN } from './leagues.js'
 import { abbr, colorFor, fmtTime } from './format.js'
-import { natStrength } from './nationalStrength.js'
+import { natStrength, natStrengthKnown } from './nationalStrength.js'
 
 // índice id-da-liga -> metadados, para reconhecer os jogos vindos do
 // endpoint global de "jogos do dia".
@@ -136,6 +136,12 @@ function buildMatches(lg, fixtures, strength, form, leagueAvg) {
     // histórico, usa a força por ranking (proxy FIFA) como fallback.
     const hs = strength[e.idHomeTeam] || (isNation ? natStrength(e.strHomeTeam) : null)
     const as = strength[e.idAwayTeam] || (isNation ? natStrength(e.strAwayTeam) : null)
+    // lastro "real" = histórico na competição OU ranking conhecido (seleções).
+    // Sem lastro nos dois lados (ex.: amistoso entre seleções de base/pequenas),
+    // a previsão é genérica: marcamos como preliminar para avisar na UI e manter
+    // o jogo fora dos bilhetes do dia.
+    const homeReal = !!strength[e.idHomeTeam] || (isNation && !!natStrengthKnown(e.strHomeTeam))
+    const awayReal = !!strength[e.idAwayTeam] || (isNation && !!natStrengthKnown(e.strAwayTeam))
     return {
       id: `${lg.id}-${e.idEvent}`,
       league: lg.local,
@@ -144,6 +150,8 @@ function buildMatches(lg, fixtures, strength, form, leagueAvg) {
       // só dá para prever com confiança se os dois times têm força estimada
       // (histórico na competição, ou ranking no caso de seleções).
       predictable: !!(hs && as),
+      // previsão sem dado real por trás (não entra nos bilhetes do dia).
+      preliminary: !homeReal && !awayReal,
       // jogo de seleção em sede neutra: sem vantagem de mando.
       homeAdv: isNation ? 1.0 : undefined,
       time: fmtTime(eventTimestamp(e)),

@@ -116,12 +116,13 @@ export default function MatchCard({ match, index }) {
         </button>
       </div>
 
-      {match.predictable ? (
+      {match.predictable && !match.preliminary ? (
         <div className="why">{reason(match, pr)}</div>
       ) : (
         <div className="why" style={{ color: 'var(--mid)' }}>
-          ⚠️ Previsão preliminar: sem histórico recente na competição (ex.: início de torneio). Os números ficam
-          mais precisos conforme novas rodadas são disputadas.
+          ⚠️ Previsão preliminar: sem histórico recente na competição nem ranking conhecido das equipes (ex.:
+          amistosos de seleções de base/menores, início de torneio). Os números ficam mais precisos conforme
+          novas rodadas são disputadas.
         </div>
       )}
 
