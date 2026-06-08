@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import ReadyTicketCard from './ReadyTicketCard.jsx'
 import { buildDailyTickets } from '../lib/tickets.js'
+import { fetchBetanoCodes, todayKey } from '../lib/betanoCodes.js'
 
 export default function ReadyTickets({ groups, loading, error }) {
   const now = new Date()
@@ -8,6 +9,17 @@ export default function ReadyTickets({ groups, loading, error }) {
   const dateLabel = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })
 
   const tickets = useMemo(() => buildDailyTickets(groups, daySeed), [groups, daySeed])
+
+  // códigos de aposta da Betano do dia (preenchidos pelo admin), por tipo de
+  // bilhete. Ausentes -> os cards caem no fluxo antigo de "montar na Betano".
+  const [codes, setCodes] = useState({})
+  useEffect(() => {
+    let on = true
+    fetchBetanoCodes(todayKey()).then((c) => on && setCodes(c))
+    return () => {
+      on = false
+    }
+  }, [])
 
   if (loading) {
     return (
@@ -38,7 +50,7 @@ export default function ReadyTickets({ groups, loading, error }) {
         para simular o retorno. Atualizam todos os dias.
       </p>
       {tickets.map((t, i) => (
-        <ReadyTicketCard key={t.key} ticket={t} index={i} />
+        <ReadyTicketCard key={t.key} ticket={t} index={i} code={codes[t.key]} />
       ))}
     </>
   )

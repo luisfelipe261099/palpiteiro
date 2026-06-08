@@ -35,7 +35,7 @@ function allPicks(groups) {
   const out = []
   groups.forEach((g) =>
     g.matches.forEach((m) => {
-      if (!m.predictable) return // ignora jogos sem previsão confiável
+      if (!m.predictable || m.preliminary) return // ignora jogos sem previsão confiável / sem dado real
       const pr = predict(m)
       const pick = bestPick(pr, m)
       out.push({
