@@ -732,6 +732,41 @@ img {
   font-weight: 800;
 }
 
+/* ---------------- CÓDIGO BETANO (booking code) ---------------- */
+.ticket-code {
+  margin-top: 13px;
+}
+.ticket-code-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px dashed var(--accent);
+  border-radius: var(--r-sm);
+  padding: 9px 12px;
+}
+.ticket-code-label {
+  font-size: 9.5px;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.ticket-code-val {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--accent);
+  letter-spacing: 1px;
+  font-variant-numeric: tabular-nums;
+}
+.ticket-code-hint {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 7px;
+  text-align: center;
+}
+
 /* ---------------- STAKE SIMULATOR ---------------- */
 .stake {
   margin-top: 13px;

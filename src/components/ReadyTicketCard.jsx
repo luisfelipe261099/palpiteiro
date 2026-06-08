@@ -1,13 +1,17 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, Copy, Check } from 'lucide-react'
 import StakeSimulator from './StakeSimulator.jsx'
 import { useBetSlip } from '../context/BetSlipContext.jsx'
-import { openBetano } from '../lib/betano.js'
+import { openBetano, openBetanoWithCode } from '../lib/betano.js'
 
-export default function ReadyTicketCard({ ticket, index }) {
+export default function ReadyTicketCard({ ticket, index, code }) {
   const { replace } = useBetSlip()
+  const [copied, setCopied] = useState(false)
 
-  const openBetanoWithTicket = () => {
+  // fallback (sem código do dia): carrega o bilhete no app e abre a Betano,
+  // onde o usuário monta os jogos manualmente.
+  const openWithTicket = () => {
     const readyPicks = ticket.games.map((g) => ({
       id: `${g.matchId}:${g.pickLabel}`,
       match: g.match,
@@ -17,6 +21,15 @@ export default function ReadyTicketCard({ ticket, index }) {
     }))
     replace(readyPicks)
     openBetano()
+  }
+
+  // com código: copia o booking code e abre a Betano (1 colar carrega tudo).
+  const openWithCode = async () => {
+    const ok = await openBetanoWithCode(code)
+    if (ok) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    }
   }
 
   return (
@@ -50,10 +63,27 @@ export default function ReadyTicketCard({ ticket, index }) {
       </div>
 
       <StakeSimulator odd={ticket.odd} prob={ticket.prob} />
-      <button className="ready-betano-btn" onClick={openBetanoWithTicket}>
-        <ExternalLink size={15} />
-        Fazer bilhete e abrir Betano
-      </button>
+
+      {code ? (
+        <div className="ticket-code">
+          <div className="ticket-code-row">
+            <span className="ticket-code-label">Código Betano</span>
+            <span className="ticket-code-val">{code}</span>
+          </div>
+          <button className="ready-betano-btn" onClick={openWithCode}>
+            {copied ? <Check size={15} /> : <Copy size={15} />}
+            {copied ? 'Código copiado · abrindo Betano' : 'Copiar código e abrir Betano'}
+          </button>
+          <div className="ticket-code-hint">
+            Na Betano, cole em <b>“Insert Booking Code”</b> para carregar o bilhete inteiro de uma vez.
+          </div>
+        </div>
+      ) : (
+        <button className="ready-betano-btn" onClick={openWithTicket}>
+          <ExternalLink size={15} />
+          Fazer bilhete e abrir Betano
+        </button>
+      )}
     </motion.div>
   )
 }

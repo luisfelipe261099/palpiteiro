@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import Header from './components/Header.jsx'
 import SearchBar from './components/SearchBar.jsx'
 import LeagueGroup from './components/LeagueGroup.jsx'
 import ReadyTickets from './components/ReadyTickets.jsx'
 import BetSlip from './components/BetSlip.jsx'
+import Admin from './components/Admin.jsx'
 import { useMatches } from './hooks/useMatches.js'
 
 const norm = (s) =>
@@ -14,6 +15,14 @@ const norm = (s) =>
     .toLowerCase()
 
 export default function App() {
+  // rota secreta de admin (#admin) para abastecer os códigos da Betano
+  const [hash, setHash] = useState(() => window.location.hash)
+  useEffect(() => {
+    const onHash = () => setHash(window.location.hash)
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+
   const { groups, loading, error, reload } = useMatches()
   const [view, setView] = useState('matches') // matches | ready
   const [query, setQuery] = useState('')
@@ -32,6 +41,9 @@ export default function App() {
       }))
       .filter((g) => g.matches.length)
   }, [groups, query])
+
+  // early-return só DEPOIS de todos os hooks (regras de hooks)
+  if (hash === '#admin') return <Admin />
 
   let runningIndex = 0
 
