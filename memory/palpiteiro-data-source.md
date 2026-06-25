@@ -45,6 +45,10 @@ Jogos futuros vêm da rodada atual. `src/lib/api.js` tem cache (5min) + retry/ba
 - **Recência:** rodadas mais recentes pesam mais (`RECENCY_DECAY=0.85`).
 - **Regularização:** encolhimento bayesiano (`SHRINK_K=3.5`) puxa a força para 1.0 quando há
   poucos jogos, matando ruído de amostra pequena.
+- **Ajuste por adversário (strength-of-schedule):** em 2º passo, cada gol é ponderado pela
+  força (bruta) do adversário enfrentado — marcar contra defesa forte vale mais que contra
+  defesa fraca (`gf/rawDef[opp]`); sofrer de ataque fraco conta mais (`ga/rawAtt[opp]`).
+  Fatores limitados (`clampFactor`) p/ não explodir com amostra pequena.
 - **Forma na conta:** times embalados ganham gols esperados (`FORM_W`), antes a forma só era
   exibida.
 - **Dixon-Coles:** correção `rho=-0.06` para placares baixos (empates/0-0/1-1 mais calibrados).

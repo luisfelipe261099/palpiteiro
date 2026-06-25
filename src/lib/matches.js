@@ -98,14 +98,20 @@ function shrunkRatio(gf, w, base) {
   return (gf + SHRINK_K * base) / (w + SHRINK_K) / base
 }
 
+// limita um fator de força para evitar que o ajuste por adversário (divisão)
+// exploda com valores extremos vindos de amostras pequenas.
+function clampFactor(x) {
+  return Math.min(1.8, Math.max(0.55, x))
+}
+
 // força ofensiva/defensiva (geral e por mando) + forma, a partir dos resultados
 // reais das últimas rodadas (eventsround.php vem completo mesmo na chave grátis).
-// Jogos recentes pesam mais (recência) e a força é regularizada (encolhimento),
-// extraindo melhor o histórico já disponível.
+// Jogos recentes pesam mais (recência), a força é regularizada (encolhimento) e
+// AJUSTADA pela qualidade do adversário enfrentado (gol contra defesa forte vale
+// mais que contra defesa fraca) — extraindo melhor o histórico já disponível.
 async function computeStrength(lg, season, round) {
-  const home = {} // id -> { gf, ga, w } só jogos em casa (ponderado)
-  const away = {} // id -> { gf, ga, w } só jogos fora (ponderado)
-  const all = {} // id -> { gf, ga, w } geral (fallback / força média)
+  const games = [] // { H, A, hs, as, w }
+  const all = {} // id -> { gf, ga, w } geral (gols brutos, p/ força de referência)
   const form = {}
   let lgHomeGoals = 0
   let lgAwayGoals = 0
@@ -129,15 +135,12 @@ async function computeStrength(lg, season, round) {
           const as = +e.intAwayScore
           const H = e.idHomeTeam
           const A = e.idAwayTeam
-          for (const map of [home, away, all]) {
-            if (!map[H]) map[H] = { gf: 0, ga: 0, w: 0 }
-            if (!map[A]) map[A] = { gf: 0, ga: 0, w: 0 }
-          }
-          home[H].gf += hs * w; home[H].ga += as * w; home[H].w += w
-          away[A].gf += as * w; away[A].ga += hs * w; away[A].w += w
+          if (!all[H]) all[H] = { gf: 0, ga: 0, w: 0 }
+          if (!all[A]) all[A] = { gf: 0, ga: 0, w: 0 }
           all[H].gf += hs * w; all[H].ga += as * w; all[H].w += w
           all[A].gf += as * w; all[A].ga += hs * w; all[A].w += w
           lgHomeGoals += hs * w; lgAwayGoals += as * w; lgW += w
+          games.push({ H, A, hs, as, w })
           pushForm(form, H, hs > as ? 'W' : hs === as ? 'D' : 'L')
           pushForm(form, A, as > hs ? 'W' : as === hs ? 'D' : 'L')
         })
@@ -149,14 +152,38 @@ async function computeStrength(lg, season, round) {
   const muHome = lgW ? lgHomeGoals / lgW : leagueAvg * HOME_ADV
   const muAway = lgW ? lgAwayGoals / lgW : leagueAvg
 
+  // força de referência (bruta) por time, p/ medir a qualidade do adversário.
+  const rawAtt = {}
+  const rawDef = {}
+  Object.keys(all).forEach((id) => {
+    rawAtt[id] = clampFactor(shrunkRatio(all[id].gf, all[id].w, leagueAvg))
+    rawDef[id] = clampFactor(shrunkRatio(all[id].ga, all[id].w, leagueAvg))
+  })
+
+  // segundo passo: reagrega gols AJUSTADOS pela força do adversário.
+  // marcar contra defesa forte (rawDef < 1) conta mais; sofrer de ataque fraco
+  // (rawAtt < 1) conta mais. Adversário médio (fator 1) não muda nada.
+  const home = {} // id -> { gf, ga, w } jogos em casa (ajustado)
+  const away = {} // id -> { gf, ga, w } jogos fora (ajustado)
+  const ensure = (m, id) => (m[id] || (m[id] = { gf: 0, ga: 0, w: 0 }))
+  for (const { H, A, hs, as, w } of games) {
+    const h = ensure(home, H)
+    h.gf += (hs / rawDef[A]) * w; h.ga += (as / rawAtt[A]) * w; h.w += w
+    const a = ensure(away, A)
+    a.gf += (as / rawDef[H]) * w; a.ga += (hs / rawAtt[H]) * w; a.w += w
+  }
+
   const strength = {}
   Object.keys(all).forEach((id) => {
-    const A = all[id]
     const H = home[id] || { gf: 0, ga: 0, w: 0 }
     const W = away[id] || { gf: 0, ga: 0, w: 0 }
+    // geral (fallback) = casa + fora, já ajustado por adversário.
+    const gAtt = H.gf + W.gf
+    const gDef = H.ga + W.ga
+    const gW = H.w + W.w
     strength[id] = {
-      att: shrunkRatio(A.gf, A.w, leagueAvg),
-      def: shrunkRatio(A.ga, A.w, leagueAvg),
+      att: shrunkRatio(gAtt, gW, leagueAvg),
+      def: shrunkRatio(gDef, gW, leagueAvg),
       attH: shrunkRatio(H.gf, H.w, muHome), // ataque jogando em casa
       defH: shrunkRatio(H.ga, H.w, muAway), // defesa jogando em casa (sofre vs muAway)
       attA: shrunkRatio(W.gf, W.w, muAway), // ataque jogando fora
