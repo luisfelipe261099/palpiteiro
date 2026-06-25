@@ -9,11 +9,15 @@ import { natStrength, natStrengthKnown } from './nationalStrength.js'
 
 // Quantas rodadas passadas alimentam a força (eventsround vem completo).
 const PAST_ROUNDS = 6
-// Recência: cada rodada mais antiga pesa 85% da anterior (jogo recente vale mais).
-const RECENCY_DECAY = 0.85
+// Recência: cada rodada mais antiga pesa 92% da anterior (jogo recente vale mais).
+// Recência leve (0.92) calibrou melhor que decair forte — com só 6 rodadas,
+// pesar demais as últimas vira ruído (ver scripts/backtest.mjs).
+const RECENCY_DECAY = 0.92
 // Encolhimento bayesiano: equivale a SHRINK_K jogos na média da liga. Com poucos
 // jogos a força é puxada para 1.0 (média), evitando exageros de amostra pequena.
-const SHRINK_K = 3.5
+// Calibrado por backtest (Brasileirão 2023+2024): k=6 melhora log-loss E o acerto
+// de 1X2 vs. k=3.5, que sub-regularizava (ver scripts/backtest.mjs).
+const SHRINK_K = 6
 
 // índice id-da-liga -> metadados, para reconhecer os jogos vindos do
 // endpoint global de "jogos do dia".
@@ -93,9 +97,9 @@ function windowDates() {
 // ratio com encolhimento bayesiano em direção a 1.0 (média do contexto).
 // gf = gols ponderados, w = peso (jogos ponderados), base = média esperada
 // daquele contexto (geral/casa/fora). Poucos jogos → ratio perto de 1.
-function shrunkRatio(gf, w, base) {
+function shrunkRatio(gf, w, base, k) {
   if (!base) return 1
-  return (gf + SHRINK_K * base) / (w + SHRINK_K) / base
+  return (gf + k * base) / (w + k) / base
 }
 
 // limita um fator de força para evitar que o ajuste por adversário (divisão)
@@ -104,12 +108,15 @@ function clampFactor(x) {
   return Math.min(1.8, Math.max(0.55, x))
 }
 
-// força ofensiva/defensiva (geral e por mando) + forma, a partir dos resultados
-// reais das últimas rodadas (eventsround.php vem completo mesmo na chave grátis).
-// Jogos recentes pesam mais (recência), a força é regularizada (encolhimento) e
-// AJUSTADA pela qualidade do adversário enfrentado (gol contra defesa forte vale
-// mais que contra defesa fraca) — extraindo melhor o histórico já disponível.
-async function computeStrength(lg, season, round) {
+// Núcleo PURO do modelo de força: recebe as rodadas passadas já buscadas
+// (`roundLists` = array de arrays de eventos, índice 0 = rodada mais recente) e
+// devolve força ofensiva/defensiva por mando + forma + médias da liga. Separado
+// da busca na API para poder ser testado/backtestado sem rede. `opts` permite
+// varrer os parâmetros (decay, shrinkK) na calibração.
+export function aggregateStrength(roundLists, opts = {}) {
+  const decay = opts.decay != null ? opts.decay : RECENCY_DECAY
+  const k = opts.shrinkK != null ? opts.shrinkK : SHRINK_K
+
   const games = [] // { H, A, hs, as, w }
   const all = {} // id -> { gf, ga, w } geral (gols brutos, p/ força de referência)
   const form = {}
@@ -117,35 +124,26 @@ async function computeStrength(lg, season, round) {
   let lgAwayGoals = 0
   let lgW = 0
 
-  if (!isNaN(round) && round > 1 && season) {
-    const rounds = []
-    for (let r = round - 1; r >= Math.max(1, round - PAST_ROUNDS); r--) rounds.push(r)
-    const past = await Promise.all(
-      rounds.map((r) =>
-        api(`eventsround.php?id=${lg.id}&r=${r}&s=${encodeURIComponent(season)}`).catch(() => ({ events: [] })),
-      ),
-    )
-    // rounds[0] é a rodada mais recente; idx maior = mais antiga = peso menor.
-    past.forEach((pd, idx) => {
-      const w = Math.pow(RECENCY_DECAY, idx)
-      ;(pd.events || [])
-        .filter((e) => e.intHomeScore != null && e.intAwayScore != null && e.intHomeScore !== '')
-        .forEach((e) => {
-          const hs = +e.intHomeScore
-          const as = +e.intAwayScore
-          const H = e.idHomeTeam
-          const A = e.idAwayTeam
-          if (!all[H]) all[H] = { gf: 0, ga: 0, w: 0 }
-          if (!all[A]) all[A] = { gf: 0, ga: 0, w: 0 }
-          all[H].gf += hs * w; all[H].ga += as * w; all[H].w += w
-          all[A].gf += as * w; all[A].ga += hs * w; all[A].w += w
-          lgHomeGoals += hs * w; lgAwayGoals += as * w; lgW += w
-          games.push({ H, A, hs, as, w })
-          pushForm(form, H, hs > as ? 'W' : hs === as ? 'D' : 'L')
-          pushForm(form, A, as > hs ? 'W' : as === hs ? 'D' : 'L')
-        })
-    })
-  }
+  // roundLists[0] é a rodada mais recente; idx maior = mais antiga = peso menor.
+  roundLists.forEach((events, idx) => {
+    const w = Math.pow(decay, idx)
+    ;(events || [])
+      .filter((e) => e.intHomeScore != null && e.intAwayScore != null && e.intHomeScore !== '')
+      .forEach((e) => {
+        const hs = +e.intHomeScore
+        const as = +e.intAwayScore
+        const H = e.idHomeTeam
+        const A = e.idAwayTeam
+        if (!all[H]) all[H] = { gf: 0, ga: 0, w: 0 }
+        if (!all[A]) all[A] = { gf: 0, ga: 0, w: 0 }
+        all[H].gf += hs * w; all[H].ga += as * w; all[H].w += w
+        all[A].gf += as * w; all[A].ga += hs * w; all[A].w += w
+        lgHomeGoals += hs * w; lgAwayGoals += as * w; lgW += w
+        games.push({ H, A, hs, as, w })
+        pushForm(form, H, hs > as ? 'W' : hs === as ? 'D' : 'L')
+        pushForm(form, A, as > hs ? 'W' : as === hs ? 'D' : 'L')
+      })
+  })
 
   const leagueAvg = lgW ? (lgHomeGoals + lgAwayGoals) / (2 * lgW) : 1.35
   // médias de gols por jogo de mandante e visitante = vantagem de mando real.
@@ -156,8 +154,8 @@ async function computeStrength(lg, season, round) {
   const rawAtt = {}
   const rawDef = {}
   Object.keys(all).forEach((id) => {
-    rawAtt[id] = clampFactor(shrunkRatio(all[id].gf, all[id].w, leagueAvg))
-    rawDef[id] = clampFactor(shrunkRatio(all[id].ga, all[id].w, leagueAvg))
+    rawAtt[id] = clampFactor(shrunkRatio(all[id].gf, all[id].w, leagueAvg, k))
+    rawDef[id] = clampFactor(shrunkRatio(all[id].ga, all[id].w, leagueAvg, k))
   })
 
   // segundo passo: reagrega gols AJUSTADOS pela força do adversário.
@@ -182,15 +180,28 @@ async function computeStrength(lg, season, round) {
     const gDef = H.ga + W.ga
     const gW = H.w + W.w
     strength[id] = {
-      att: shrunkRatio(gAtt, gW, leagueAvg),
-      def: shrunkRatio(gDef, gW, leagueAvg),
-      attH: shrunkRatio(H.gf, H.w, muHome), // ataque jogando em casa
-      defH: shrunkRatio(H.ga, H.w, muAway), // defesa jogando em casa (sofre vs muAway)
-      attA: shrunkRatio(W.gf, W.w, muAway), // ataque jogando fora
-      defA: shrunkRatio(W.ga, W.w, muHome), // defesa jogando fora (sofre vs muHome)
+      att: shrunkRatio(gAtt, gW, leagueAvg, k),
+      def: shrunkRatio(gDef, gW, leagueAvg, k),
+      attH: shrunkRatio(H.gf, H.w, muHome, k), // ataque jogando em casa
+      defH: shrunkRatio(H.ga, H.w, muAway, k), // defesa jogando em casa (sofre vs muAway)
+      attA: shrunkRatio(W.gf, W.w, muAway, k), // ataque jogando fora
+      defA: shrunkRatio(W.ga, W.w, muHome, k), // defesa jogando fora (sofre vs muHome)
     }
   })
   return { strength, form, leagueAvg, muHome, muAway }
+}
+
+// busca as últimas rodadas na API e delega o cálculo ao núcleo puro acima.
+async function computeStrength(lg, season, round) {
+  if (isNaN(round) || round <= 1 || !season) return aggregateStrength([])
+  const rounds = []
+  for (let r = round - 1; r >= Math.max(1, round - PAST_ROUNDS); r--) rounds.push(r)
+  const past = await Promise.all(
+    rounds.map((r) =>
+      api(`eventsround.php?id=${lg.id}&r=${r}&s=${encodeURIComponent(season)}`).catch(() => ({ events: [] })),
+    ),
+  )
+  return aggregateStrength(past.map((pd) => (pd && pd.events) || []))
 }
 
 // normaliza uma força para o formato com mando (attH/defH/attA/defA). O

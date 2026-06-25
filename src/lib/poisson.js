@@ -37,8 +37,8 @@ function formScore(form) {
   for (const r of form) s += r === 'W' ? 1 : r === 'D' ? 0.5 : 0
   return s / form.length
 }
-function formMult(form) {
-  return 1 + FORM_W * (formScore(form) - 0.5)
+function formMult(form, w) {
+  return 1 + w * (formScore(form) - 0.5)
 }
 
 // lê o atributo de mando com fallback para o valor geral (compatível com dados
@@ -49,7 +49,9 @@ function attr(team, mandoKey, geralKey) {
   return 1
 }
 
-export function predict(match) {
+export function predict(match, opts = {}) {
+  const rho = opts.rho != null ? opts.rho : DC_RHO
+  const formW = opts.formW != null ? opts.formW : FORM_W
   const avg = match.leagueAvg || 1.35
   // médias de gols de mandante e visitante (vantagem de mando vinda dos dados
   // da liga; cai no fator fixo quando a liga ainda não tem split calculado).
@@ -60,8 +62,8 @@ export function predict(match) {
   const a = match.away
   // mandante ataca com sua força de CASA contra a defesa de FORA do visitante;
   // visitante ataca com sua força de FORA contra a defesa de CASA do mandante.
-  let expH = muH * attr(h, 'attH', 'att') * attr(a, 'defA', 'def') * formMult(h.form)
-  let expA = muA * attr(a, 'attA', 'att') * attr(h, 'defH', 'def') * formMult(a.form)
+  let expH = muH * attr(h, 'attH', 'att') * attr(a, 'defA', 'def') * formMult(h.form, formW)
+  let expA = muA * attr(a, 'attA', 'att') * attr(h, 'defH', 'def') * formMult(a.form, formW)
   // limites sãos p/ dados ruidosos não explodirem o grid
   expH = Math.min(5, Math.max(0.2, expH))
   expA = Math.min(5, Math.max(0.2, expA))
@@ -78,7 +80,7 @@ export function predict(match) {
   for (let i = 0; i <= MAXG; i++) {
     const pi = poisson(i, expH)
     for (let j = 0; j <= MAXG; j++) {
-      const p = pi * poisson(j, expA) * dcTau(i, j, expH, expA, DC_RHO)
+      const p = pi * poisson(j, expA) * dcTau(i, j, expH, expA, rho)
       T += p
       if (i > j) pH += p
       else if (i === j) pD += p

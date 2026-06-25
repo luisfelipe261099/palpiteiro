@@ -2,7 +2,10 @@
 // A chave gratuita "3" é compartilhada e tem limite; o backoff evita
 // falhas intermitentes sob rajada de requisições.
 
-const KEY = import.meta.env.VITE_TSDB_KEY || '3'
+// import.meta.env existe no Vite (browser); em Node (ex.: scripts de backtest)
+// não existe, então caímos na chave pública "3".
+const ENV = (typeof import.meta !== 'undefined' && import.meta.env) || {}
+const KEY = ENV.VITE_TSDB_KEY || '3'
 const BASE = `https://www.thesportsdb.com/api/v1/json/${KEY}/`
 
 const cache = new Map() // path -> { ts, data }

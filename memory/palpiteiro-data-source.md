@@ -56,6 +56,16 @@ Jogos futuros vêm da rodada atual. `src/lib/api.js` tem cache (5min) + retry/ba
   favorito claro → resultado seco; senão tendência de gols; senão dupla chance segura.
 Seleções (sede neutra) usam `muHome=muAway=leagueAvg` (sem mando) e força por ranking.
 
+**Backtesting / calibração:** `scripts/backtest.mjs` (`npm run backtest [season] [leagueId...]`)
+refaz o modelo sobre rodadas passadas usando só dados anteriores a cada jogo (igual ao app
+ao vivo) e mede acerto do palpite, acerto de 1X2 e calibração (Brier/log-loss); depois varre
+os parâmetros (`decay`/`shrinkK`/`rho`/`formW`). O núcleo de força virou função pura exportada
+`aggregateStrength(roundLists, opts)` em `matches.js`, e `predict(match, opts)` aceita override
+de `rho`/`formW` — por isso dá para varrer sem rede. Calibrado em Brasileirão 2023+2024 (~260
+jogos): `RECENCY_DECAY=0.92` e `SHRINK_K=6` (o k=3.5 anterior sub-regularizava e derrubava o
+1X2 abaixo de "sempre casa"). Roda na chave grátis `3`, mas ela bloqueia o IP sob rajada —
+rode 1 liga por vez. Ligas europeias usam season tipo `2023-2024`; Brasileirão usa `2024`.
+
 **Outro gotcha:** a chave `3` é compartilhada e bloqueia o IP sob rajada de requisições
 (retorna `HTTP 000`/conexão recusada, não 429). Testar com moderação.
 
