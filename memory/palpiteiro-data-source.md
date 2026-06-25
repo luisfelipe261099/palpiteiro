@@ -54,6 +54,10 @@ Jogos futuros vêm da rodada atual. `src/lib/api.js` tem cache (5min) + retry/ba
 - **Dixon-Coles:** correção `rho=-0.06` para placares baixos (empates/0-0/1-1 mais calibrados).
 - **Palpite (`bestPick`):** escolhe entre 1X2, dupla chance, over/under 2.5 e ambas marcam —
   favorito claro → resultado seco; senão tendência de gols; senão dupla chance segura.
+- **Value betting (`ValueCheck`):** no card, o usuário digita a odd da casa e o app sinaliza
+  se há VALOR (prob. do modelo > implícita na odd). Helpers em `poisson.js`: `impliedProb`,
+  `valueEdge` (= p*odd-1) e `valueTier` (limiar de +5% p/ marcar "Valor"). Como não há feed de
+  odds, a odd é digitada manualmente.
 Seleções (sede neutra) usam `muHome=muAway=leagueAvg` (sem mando) e força por ranking.
 
 **Backtesting / calibração:** `scripts/backtest.mjs` (`npm run backtest [season] [leagueId...]`)

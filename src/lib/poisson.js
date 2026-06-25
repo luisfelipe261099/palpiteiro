@@ -143,3 +143,22 @@ export function tier(p) {
 
 export const toOdd = (p) => (1 / p) * 1.06 // +6% margem simulada
 export const pct = (p) => Math.round(p * 100)
+
+// ── Value betting ──────────────────────────────────────────────────────────
+// A odd da casa embute uma probabilidade implícita (1/odd). Há "valor" quando a
+// nossa probabilidade do modelo é maior que a implícita — ou seja, o retorno
+// esperado por real apostado (p*odd) supera 1. É onde mora o lucro de longo prazo.
+
+// probabilidade implícita na odd ofertada (sem remover a margem da casa).
+export const impliedProb = (odd) => (odd > 0 ? 1 / odd : 0)
+
+// retorno esperado por unidade apostada: > 0 = valor, < 0 = aposta cara.
+export const valueEdge = (p, odd) => p * odd - 1
+
+// classifica o edge p/ a UI. Limiar de 5% evita marcar como "valor" diferenças
+// dentro do ruído do modelo.
+export function valueTier(edge) {
+  if (edge >= 0.05) return { cls: 'safe', txt: 'Valor' }
+  if (edge >= -0.02) return { cls: 'mid', txt: 'Justa' }
+  return { cls: 'risk', txt: 'Sem valor' }
+}

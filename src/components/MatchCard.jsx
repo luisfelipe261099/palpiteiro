@@ -4,6 +4,7 @@ import TeamCrest from './TeamCrest.jsx'
 import FormPills from './FormPills.jsx'
 import ProbBar from './ProbBar.jsx'
 import AiPanel from './AiPanel.jsx'
+import ValueCheck from './ValueCheck.jsx'
 import { predict, bestPick, tier, toOdd, pct } from '../lib/poisson.js'
 import { useBetSlip } from '../context/BetSlipContext.jsx'
 
@@ -117,6 +118,8 @@ export default function MatchCard({ match, index }) {
           )}
         </button>
       </div>
+
+      {match.predictable && !match.preliminary ? <ValueCheck p={pick.p} /> : null}
 
       {match.predictable && !match.preliminary ? (
         <div className="why">{reason(match, pr)}</div>

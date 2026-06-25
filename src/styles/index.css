@@ -590,6 +590,54 @@ img {
   border: 1px solid var(--safe);
 }
 
+.value {
+  margin-top: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+}
+.value-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.value-lbl {
+  font-size: 9.5px;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.value-input {
+  flex: 0 0 88px;
+  width: 88px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--stroke);
+  border-radius: var(--r-sm);
+  padding: 7px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+}
+.value-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.value-out {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 9px;
+}
+.value-note {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
 .why {
   font-size: 11.5px;
   color: var(--muted);
