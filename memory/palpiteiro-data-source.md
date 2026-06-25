@@ -58,6 +58,19 @@ Jogos futuros vêm da rodada atual. `src/lib/api.js` tem cache (5min) + retry/ba
   se há VALOR (prob. do modelo > implícita na odd). Helpers em `poisson.js`: `impliedProb`,
   `valueEdge` (= p*odd-1) e `valueTier` (limiar de +5% p/ marcar "Valor"). Como não há feed de
   odds, a odd é digitada manualmente.
+
+**Bilhetes prontos (`tickets.js` + `ReadyTickets`):** agora SÓ com jogos de HOJE
+(`isToday`/`todayPredictableMatches`) e seleção determinística por qualidade (sem sorteio):
+Seguro = maiores probabilidades, Arriscado = maiores odds restantes, Médio = melhores
+remanescentes. `buildDailyTickets(groups)` (assinatura sem daySeed). `marketOptions(pr, m)` em
+`poisson.js` lista todos os mercados (resultado/dupla chance/gols) e é reusado pelo bestPick.
+
+**Criador de bilhetes (`CustomTickets`):** o dono pode montar bilhetes prontos próprios,
+protegido por senha (`2610`, cadeado só no cliente — não é segurança real). Escolhe jogos de
+hoje + mercado de cada um e salva no dispositivo (`localStorage: palpiteiro_meus_bilhetes`,
+filtrados por data de hoje). Aparecem em "Meus bilhetes", acima dos automáticos, e reusam o
+`ReadyTicketCard`. Limitação: ficam só no dispositivo de quem criou (não são compartilhados a
+todos como os booking codes do `#admin`/Redis).
 Seleções (sede neutra) usam `muHome=muAway=leagueAvg` (sem mando) e força por ranking.
 
 **Backtesting / calibração:** `scripts/backtest.mjs` (`npm run backtest [season] [leagueId...]`)

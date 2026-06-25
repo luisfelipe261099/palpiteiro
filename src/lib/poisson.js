@@ -107,28 +107,32 @@ export function predict(match, opts = {}) {
   }
 }
 
+// Todos os mercados que o modelo cobre, com label e probabilidade. Usado tanto
+// pelo palpite automático (bestPick) quanto pelo construtor de bilhetes manual.
+export function marketOptions(pr, m) {
+  return [
+    { key: '1', label: `Vitória ${m.home.name}`, p: pr.pH, group: 'Resultado' },
+    { key: 'X', label: 'Empate', p: pr.pD, group: 'Resultado' },
+    { key: '2', label: `Vitória ${m.away.name}`, p: pr.pA, group: 'Resultado' },
+    { key: '1X', label: `${m.home.short} ou Empate`, p: pr.pH + pr.pD, group: 'Dupla chance' },
+    { key: '12', label: 'Sem empate (1 ou 2)', p: pr.pH + pr.pA, group: 'Dupla chance' },
+    { key: 'X2', label: `Empate ou ${m.away.short}`, p: pr.pD + pr.pA, group: 'Dupla chance' },
+    { key: 'O25', label: 'Mais de 2.5 gols', p: pr.over25, group: 'Gols' },
+    { key: 'U25', label: 'Menos de 2.5 gols', p: 1 - pr.over25, group: 'Gols' },
+    { key: 'BTS', label: 'Ambas marcam: Sim', p: pr.btts, group: 'Gols' },
+    { key: 'BTN', label: 'Ambas marcam: Não', p: 1 - pr.btts, group: 'Gols' },
+  ]
+}
+
 // Escolhe o palpite mais "de valor" considerando vários mercados, não só 1X2:
 // favorito claro → resultado seco; senão tendência de gols/ambas; senão dupla
 // chance como rede de segurança. Mantém o palpite confiável sem ser trivial.
 export function bestPick(pr, m) {
-  const oneX2 = [
-    { key: '1', label: `Vitória ${m.home.name}`, p: pr.pH },
-    { key: 'X', label: 'Empate', p: pr.pD },
-    { key: '2', label: `Vitória ${m.away.name}`, p: pr.pA },
-  ].sort((a, b) => b.p - a.p)
-
-  const goals = [
-    { key: 'O25', label: 'Mais de 2.5 gols', p: pr.over25 },
-    { key: 'U25', label: 'Menos de 2.5 gols', p: 1 - pr.over25 },
-    { key: 'BTS', label: 'Ambas marcam: Sim', p: pr.btts },
-    { key: 'BTN', label: 'Ambas marcam: Não', p: 1 - pr.btts },
-  ].sort((a, b) => b.p - a.p)
-
-  const dbl = [
-    { key: '1X', label: `${m.home.short} ou Empate`, p: pr.pH + pr.pD },
-    { key: '12', label: 'Sem empate (1 ou 2)', p: pr.pH + pr.pA },
-    { key: 'X2', label: `Empate ou ${m.away.short}`, p: pr.pD + pr.pA },
-  ].sort((a, b) => b.p - a.p)
+  const o = marketOptions(pr, m)
+  const by = (k) => o.find((x) => x.key === k)
+  const oneX2 = [by('1'), by('X'), by('2')].sort((a, b) => b.p - a.p)
+  const goals = [by('O25'), by('U25'), by('BTS'), by('BTN')].sort((a, b) => b.p - a.p)
+  const dbl = [by('1X'), by('12'), by('X2')].sort((a, b) => b.p - a.p)
 
   if (oneX2[0].p >= 0.55) return oneX2[0] // favorito claro → resultado seco
   if (goals[0].p >= 0.62) return goals[0] // tendência forte de gols / ambas
