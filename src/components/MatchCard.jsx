@@ -8,17 +8,19 @@ import { predict, bestPick, tier, toOdd, pct } from '../lib/poisson.js'
 import { useBetSlip } from '../context/BetSlipContext.jsx'
 
 function reason(m, pr) {
-  const fav = pr.pH > pr.pA ? m.home : m.away
+  const homeFav = pr.pH >= pr.pA
+  const fav = homeFav ? m.home : m.away
+  const mando = homeFav ? 'em casa' : 'fora'
   const f = fav.form
   const wins = f.filter((x) => x === 'W').length
   const formTxt = f.length ? `venceu ${wins} dos últimos ${f.length}` : 'tem ataque/defesa superiores'
   return (
     <>
-      Por quê: <b>{fav.name}</b> {formTxt}. Gols esperados{' '}
+      Por quê: <b>{fav.name}</b> {formTxt} e leva vantagem jogando {mando}. Gols esperados{' '}
       <b>
         {pr.expH.toFixed(1)}–{pr.expA.toFixed(1)}
       </b>
-      . Chance de ambas marcarem <b>{pct(pr.btts)}%</b>.
+      , placar mais provável <b>{pr.scoreH}-{pr.scoreA}</b>. Ambas marcam <b>{pct(pr.btts)}%</b>.
     </>
   )
 }
@@ -80,7 +82,7 @@ export default function MatchCard({ match, index }) {
         <div className="chip">
           <div className="k">Placar provável</div>
           <div className="v">
-            {Math.round(pr.expH)}-{Math.round(pr.expA)}
+            {pr.scoreH}-{pr.scoreA}
           </div>
         </div>
       </div>

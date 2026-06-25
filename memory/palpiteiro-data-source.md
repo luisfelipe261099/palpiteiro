@@ -34,9 +34,23 @@ truncado) — precisam de chave registrada.
 Em junho/2026 a Copa do Mundo (4429) está ativa; Champions/europeias em recesso.
 
 **Solução adotada:** força ofensiva/defensiva e forma são calculadas dos RESULTADOS reais
-das últimas ~10 rodadas (`eventsround.php?id=&r=&s=`), que vêm completos (10 jogos/rodada).
-`att=(gols feitos/jogo)/médiaLiga`, `def=(gols sofridos/jogo)/médiaLiga`. Alimenta o Poisson.
+das últimas ~6 rodadas (`eventsround.php?id=&r=&s=`), que vêm completos (10 jogos/rodada).
 Jogos futuros vêm da rodada atual. `src/lib/api.js` tem cache (5min) + retry/backoff (429/5xx).
+
+**Modelo (melhorado):** o histórico agora é usado de forma mais rica em `computeStrength`
+(`matches.js`) e `predict` (`poisson.js`):
+- **Mando real:** força separada casa/fora (`attH/defH/attA/defA`) e médias de gols de
+  mandante/visitante (`muHome/muAway`) derivadas dos dados — a vantagem de mando deixa de
+  ser a constante `HOME_ADV` (que vira só fallback).
+- **Recência:** rodadas mais recentes pesam mais (`RECENCY_DECAY=0.85`).
+- **Regularização:** encolhimento bayesiano (`SHRINK_K=3.5`) puxa a força para 1.0 quando há
+  poucos jogos, matando ruído de amostra pequena.
+- **Forma na conta:** times embalados ganham gols esperados (`FORM_W`), antes a forma só era
+  exibida.
+- **Dixon-Coles:** correção `rho=-0.06` para placares baixos (empates/0-0/1-1 mais calibrados).
+- **Palpite (`bestPick`):** escolhe entre 1X2, dupla chance, over/under 2.5 e ambas marcam —
+  favorito claro → resultado seco; senão tendência de gols; senão dupla chance segura.
+Seleções (sede neutra) usam `muHome=muAway=leagueAvg` (sem mando) e força por ranking.
 
 **Outro gotcha:** a chave `3` é compartilhada e bloqueia o IP sob rajada de requisições
 (retorna `HTTP 000`/conexão recusada, não 429). Testar com moderação.
