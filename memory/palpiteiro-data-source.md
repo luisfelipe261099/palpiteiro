@@ -19,8 +19,23 @@ UI premium estilo Apple (glassmorphism, Inter, framer-motion, lucide-react).
 - `eventsnextleague.php` → só 1 evento.
 - `eventslast.php` → só 1 evento.
 - `all_leagues.php` → só ~10 ligas europeias.
-- `eventsround.php` é o ÚNICO que vem completo (rodada inteira). Por isso toda
-  força/forma é calculada dele.
+- `eventsday.php` → passou a vir truncado também (~3 eventos/dia, verificado
+  em jul/2026). A descoberta de ligas nacionais NÃO pode depender só dele:
+  `matches.js` complementa com `eventsnextleague` por liga (discoverLeagueViaNext).
+- `eventsround.php` é o mais completo (mas na Copa 2026 a fase de grupos
+  veio com só 5 jogos/rodada). Toda força/forma é calculada dele.
+
+**Rodadas de mata-mata (intRound):** códigos especiais — `125` = quartas,
+`150` = semi, `160`/`200` = 3º lugar/final (KNOCKOUT_ROUNDS em matches.js).
+`computeStrength` não pode fazer `round-1` nesses casos (rodada 124 não
+existe); usa grupos (1..3) + fases já disputadas. `discoverCupWide` busca
+também as fases seguintes já agendadas dentro da janela de 10 dias.
+
+**Bilhetes do dia (tickets.js):** pool com até 4 mercados por jogo (resultado,
+dupla chance do favorito, +/-2.5 gols, ambas marcam). Bilhetes diferentes podem
+reusar o mesmo jogo em mercados diferentes (essencial no mata-mata, com 1–2
+jogos/dia); dentro de um bilhete, 1 palpite por jogo. Perfis por "centro" de
+probabilidade (safe 0.74 / mid 0.56 / risk 0.40), determinístico por daySeed.
 
 **IDs de competição verificados (via WebFetch):** 4429 Copa do Mundo, 4503 Mundial
 de Clubes (FIFA Club WC), 4502 Eurocopa, 4480 Champions, 4481 Europa League, 5071

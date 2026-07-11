@@ -58,7 +58,12 @@ export default function App() {
 
       <main className="wrap">
         {view === 'ready' ? (
-          <ReadyTickets groups={groups} loading={loading} error={error} />
+          <ReadyTickets
+            groups={groups}
+            loading={loading}
+            error={error}
+            onGoMatches={() => setView('matches')}
+          />
         ) : (
           <>
             <p className="intro">

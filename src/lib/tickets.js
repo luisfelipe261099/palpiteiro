@@ -1,6 +1,11 @@
 // Gera "bilhetes do dia" a partir dos jogos carregados.
-// São 3 bilhetes (Seguro / Médio / Arriscado). A seleção é determinística
-// por dia (muda a cada dia, estável dentro do mesmo dia).
+// São até 3 bilhetes (Seguro / Médio / Arriscado), montados de um pool com
+// VÁRIOS mercados por jogo (resultado/dupla chance, gols +/-2.5 e ambas
+// marcam). Isso permite montar bilhetes mesmo em dias com poucos jogos
+// (ex.: mata-mata da Copa, com 1–2 partidas por dia): bilhetes diferentes
+// podem usar o mesmo jogo em mercados diferentes, como nos bilhetes reais
+// das casas de aposta. A seleção é determinística por dia (muda a cada dia,
+// estável dentro do mesmo dia).
 import { predict, bestPick, tier, toOdd } from './poisson.js'
 
 // hash + PRNG determinísticos (sem Math.random, p/ ser estável por dia)
@@ -22,33 +27,55 @@ function seeded(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296
   }
 }
-function shuffle(arr, rnd) {
-  const a = [...arr]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rnd() * (i + 1))
-    ;[a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
-}
 
+// monta o pool de palpites: até 3 mercados por jogo previsível.
 function allPicks(groups) {
   const out = []
   groups.forEach((g) =>
     g.matches.forEach((m) => {
       if (!m.predictable || m.preliminary) return // ignora jogos sem previsão confiável / sem dado real
       const pr = predict(m)
-      const pick = bestPick(pr, m)
-      out.push({
+      const base = {
         matchId: m.id,
         short: `${m.home.short} x ${m.away.short}`,
         match: `${m.home.name} x ${m.away.name}`,
         league: m.league,
         time: m.time,
-        pickLabel: pick.label,
-        p: pick.p,
-        odd: toOdd(pick.p),
-        cls: tier(pick.p).cls,
-      })
+        ts: m.ts,
+      }
+      const add = (market, label, p) => {
+        // descarta palpites sem valor (muito improváveis ou "certos demais",
+        // que viram odd ~1.0 e não agregam nada ao bilhete)
+        if (p < 0.3 || p > 0.92) return
+        out.push({
+          ...base,
+          id: `${m.id}:${market}`,
+          market,
+          pickLabel: label,
+          p,
+          odd: toOdd(p),
+          cls: tier(p).cls,
+        })
+      }
+
+      // 1) resultado (1X2 ou dupla chance, o que for mais confiável)
+      const pick = bestPick(pr, m)
+      add('result', pick.label, pick.p)
+
+      // 1b) dupla chance do favorito (perna segura p/ o Bilhete Seguro),
+      // quando o resultado sugerido foi vitória simples
+      if (pick.key === '1' || pick.key === '2') {
+        if (pick.key === '1') add('dc', `${m.home.short} ou Empate`, pr.pH + pr.pD)
+        else add('dc', `Empate ou ${m.away.short}`, pr.pD + pr.pA)
+      }
+
+      // 2) total de gols: o lado mais provável de +/-2.5
+      if (pr.over25 >= 0.5) add('goals', 'Mais de 2.5 gols', pr.over25)
+      else add('goals', 'Menos de 2.5 gols', 1 - pr.over25)
+
+      // 3) ambas marcam: o lado mais provável
+      if (pr.btts >= 0.5) add('btts', 'Ambas marcam: Sim', pr.btts)
+      else add('btts', 'Ambas marcam: Não', 1 - pr.btts)
     }),
   )
   return out
@@ -64,41 +91,72 @@ function compose(games) {
   return { odd, prob }
 }
 
-const DEFS = {
-  safe: { key: 'safe', title: 'Bilhete Seguro', cls: 'safe', size: 3 },
-  mid: { key: 'mid', title: 'Bilhete Médio', cls: 'mid', size: 4 },
-  risk: { key: 'risk', title: 'Bilhete Arriscado', cls: 'risk', size: 3 },
-}
+// perfis: cada bilhete busca palpites cuja probabilidade fique perto do seu
+// "centro" ideal. Seguro = favoritos claros; Médio = equilíbrio; Arriscado =
+// odds maiores.
+const PROFILES = [
+  { key: 'safe', title: 'Bilhete Seguro', cls: 'safe', center: 0.74, size: 3 },
+  { key: 'mid', title: 'Bilhete Médio', cls: 'mid', center: 0.56, size: 4 },
+  { key: 'risk', title: 'Bilhete Arriscado', cls: 'risk', center: 0.4, size: 3 },
+]
 
-function pick(avail, def, end, daySeed) {
-  if (avail.length < 2) return null
-  const size = Math.min(def.size, avail.length)
-  // janela = bilhete + 1, na ponta certa (variação leve por dia, sem vazar
-  // jogos prováveis para o bilhete arriscado e vice-versa)
-  const win = avail.length <= size ? avail : end === 'low' ? avail.slice(-(size + 1)) : avail.slice(0, size + 1)
-  const rnd = seeded(hashStr(`${daySeed}|${def.key}`))
-  const chosen = shuffle(win, rnd).slice(0, size)
-  const { odd, prob } = compose(chosen)
-  return { key: def.key, title: def.title, cls: def.cls, games: chosen, odd, prob }
+// monta um bilhete: escolhe os palpites que melhor "encaixam" no perfil,
+// no máximo 1 palpite por jogo dentro do mesmo bilhete. Palpites já usados
+// em bilhetes anteriores são penalizados (variedade quando há jogos de
+// sobra, reuso permitido quando o dia tem poucos jogos).
+function buildTicket(pool, prof, usedPickIds, daySeed) {
+  if (!pool.length) return null
+  const rnd = seeded(hashStr(`${daySeed}|${prof.key}`))
+  const scored = pool
+    .map((p) => ({
+      pick: p,
+      score:
+        -Math.abs(p.p - prof.center) - // distância do perfil
+        (usedPickIds.has(p.id) ? 0.18 : 0) + // já saiu em outro bilhete
+        rnd() * 0.05, // desempate/variação diária
+    }))
+    .sort((a, b) => b.score - a.score)
+
+  const games = []
+  const usedMatches = new Set()
+  for (const { pick } of scored) {
+    if (games.length >= prof.size) break
+    if (usedMatches.has(pick.matchId)) continue // 1 palpite por jogo no bilhete
+    usedMatches.add(pick.matchId)
+    games.push(pick)
+  }
+  if (!games.length) return null
+
+  games.sort((a, b) => (a.ts || '').localeCompare(b.ts || ''))
+  const { odd, prob } = compose(games)
+  return { key: prof.key, title: prof.title, cls: prof.cls, games, odd, prob }
 }
 
 export function buildDailyTickets(groups, daySeed) {
-  const picks = allPicks(groups)
-  if (picks.length < 3) return []
+  const pool = allPicks(groups)
+  if (!pool.length) return []
 
-  const sorted = [...picks].sort((a, b) => b.p - a.p) // maior probabilidade primeiro
-  const used = new Set()
-  const avail = () => sorted.filter((p) => !used.has(p.matchId))
-  const take = (t) => t && t.games.forEach((g) => used.add(g.matchId))
+  const matchCount = new Set(pool.map((p) => p.matchId)).size
+  const usedPickIds = new Set()
+  const seen = new Set() // dedup de bilhetes idênticos (dias com 1 jogo só)
+  const tickets = []
 
-  // ordem de montagem: Seguro (topo) → Arriscado (fundo) → Médio (sobra do meio)
-  const safe = pick(avail(), DEFS.safe, 'high', daySeed)
-  take(safe)
-  const risk = pick(avail(), DEFS.risk, 'low', daySeed)
-  take(risk)
-  const mid = pick(avail(), DEFS.mid, 'high', daySeed)
-  take(mid)
+  for (const prof of PROFILES) {
+    // adapta o tamanho ao dia: nunca pede mais jogos do que existem
+    const size = Math.max(1, Math.min(prof.size, matchCount))
+    const t = buildTicket(pool, { ...prof, size }, usedPickIds, daySeed)
+    if (!t) continue
+    const sig = t.games
+      .map((g) => g.id)
+      .sort()
+      .join('|')
+    if (seen.has(sig)) continue
+    seen.add(sig)
+    t.games.forEach((g) => usedPickIds.add(g.id))
+    tickets.push(t)
+  }
 
-  // exibe na ordem Seguro · Médio · Arriscado
-  return [safe, mid, risk].filter(Boolean)
+  // garante a leitura Seguro → Arriscado (maior chance primeiro)
+  tickets.sort((a, b) => b.prob - a.prob)
+  return tickets
 }

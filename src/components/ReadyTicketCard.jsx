@@ -13,7 +13,7 @@ export default function ReadyTicketCard({ ticket, index, code }) {
   // onde o usuário monta os jogos manualmente.
   const openWithTicket = () => {
     const readyPicks = ticket.games.map((g) => ({
-      id: `${g.matchId}:${g.pickLabel}`,
+      id: g.id || `${g.matchId}:${g.pickLabel}`,
       match: g.match,
       pickLabel: g.pickLabel,
       p: g.p,
@@ -41,23 +41,27 @@ export default function ReadyTicketCard({ ticket, index, code }) {
     >
       <div className="card-top">
         <span className={`badge ${ticket.cls}`}>
-          {ticket.title} · {ticket.games.length} jogos
+          {ticket.title} · {ticket.games.length} {ticket.games.length === 1 ? 'jogo' : 'jogos'}
         </span>
         <span className="meta">
-          Odd <b style={{ color: 'var(--accent)' }}>@{ticket.odd.toFixed(2)}</b>
+          {Math.round(ticket.prob * 100)}% de chance · Odd{' '}
+          <b style={{ color: 'var(--accent)' }}>@{ticket.odd.toFixed(2)}</b>
         </span>
       </div>
 
       <div className="ticket-games">
         {ticket.games.map((g) => (
-          <div className="tg" key={g.matchId}>
+          <div className="tg" key={g.id || g.matchId}>
             <div className="tg-main">
               <div className="tg-match">
                 {g.short} · {g.league} · {g.time}
               </div>
               <div className="tg-pick">{g.pickLabel}</div>
             </div>
-            <div className="tg-odd">@{g.odd.toFixed(2)}</div>
+            <div className="tg-side">
+              <div className="tg-odd">@{g.odd.toFixed(2)}</div>
+              <div className={`tg-prob ${g.cls}`}>{Math.round(g.p * 100)}%</div>
+            </div>
           </div>
         ))}
       </div>
