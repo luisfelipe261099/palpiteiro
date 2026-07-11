@@ -87,7 +87,14 @@ export default function MatchCard({ match, index }) {
 
       <div className="pick">
         <div>
-          <div className="lbl">Palpite sugerido</div>
+          <div className="lbl">
+            Palpite sugerido
+            {match.conf != null && (
+              <span className={`conf-tag ${match.conf >= 0.65 ? 'safe' : match.conf >= 0.35 ? 'mid' : 'risk'}`}>
+                dados: {match.conf >= 0.65 ? 'bons' : match.conf >= 0.35 ? 'médios' : 'fracos'}
+              </span>
+            )}
+          </div>
           <div className="val">
             {pick.label} <span className="odds">@{odd.toFixed(2)}</span>
           </div>

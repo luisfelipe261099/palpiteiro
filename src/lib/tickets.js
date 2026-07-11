@@ -42,6 +42,7 @@ function allPicks(groups) {
         league: m.league,
         time: m.time,
         ts: m.ts,
+        conf: m.conf != null ? m.conf : 0.5,
       }
       const add = (market, label, p) => {
         // descarta palpites sem valor (muito improváveis ou "certos demais",
@@ -107,11 +108,15 @@ const PROFILES = [
 function buildTicket(pool, prof, usedPickIds, daySeed) {
   if (!pool.length) return null
   const rnd = seeded(hashStr(`${daySeed}|${prof.key}`))
+  // o Bilhete Seguro exige mais lastro nos dados; nos demais a confiança
+  // ainda conta, mas pesa menos (odds maiores toleram mais incerteza)
+  const confW = prof.key === 'safe' ? 0.15 : 0.08
   const scored = pool
     .map((p) => ({
       pick: p,
       score:
-        -Math.abs(p.p - prof.center) - // distância do perfil
+        -Math.abs(p.p - prof.center) + // distância do perfil
+        p.conf * confW - // jogos com mais dados na frente
         (usedPickIds.has(p.id) ? 0.18 : 0) + // já saiu em outro bilhete
         rnd() * 0.05, // desempate/variação diária
     }))
@@ -156,7 +161,8 @@ export function buildDailyTickets(groups, daySeed) {
     tickets.push(t)
   }
 
-  // garante a leitura Seguro → Arriscado (maior chance primeiro)
-  tickets.sort((a, b) => b.prob - a.prob)
+  // exibe sempre na ordem Seguro · Médio · Arriscado
+  const order = { safe: 0, mid: 1, risk: 2 }
+  tickets.sort((a, b) => order[a.key] - order[b.key])
   return tickets
 }

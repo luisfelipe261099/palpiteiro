@@ -49,8 +49,17 @@ truncado) — precisam de chave registrada.
 Em junho/2026 a Copa do Mundo (4429) está ativa; Champions/europeias em recesso.
 
 **Solução adotada:** força ofensiva/defensiva e forma são calculadas dos RESULTADOS reais
-das últimas ~10 rodadas (`eventsround.php?id=&r=&s=`), que vêm completos (10 jogos/rodada).
-`att=(gols feitos/jogo)/médiaLiga`, `def=(gols sofridos/jogo)/médiaLiga`. Alimenta o Poisson.
+das últimas ~6 rodadas (`eventsround.php?id=&r=&s=`), com melhorias de calibração:
+- **decaimento por rodada** (0.85^idade — rodada recente pesa mais);
+- **encolhimento bayesiano** (PRIOR_GAMES=3 jogos virtuais na média da liga) —
+  sem isso, amostras de 1-2 jogos geravam absurdos (ex.: Suíça favorita sobre a Argentina);
+- **mando de campo medido na amostra** (golsCasa/golsFora, clamp 1.02–1.30; seleção = 1.0);
+- **seleções: blend** histórico do torneio × ranking curado, peso n/(n+3);
+- **Poisson com correção de Dixon-Coles** (rho=-0.11, empates/placares baixos) em poisson.js,
+  btts/over calculados da grade corrigida, expH/expA clamp 0.2–4.5;
+- `bestPick` só sugere vitória simples com p≥0.50 (senão dupla chance);
+- cada match tem `conf` 0..1 (lastro de dados; min dos dois lados) — mostrado
+  como selo no MatchCard e usado como bônus de score nos bilhetes (safe pesa mais).
 Jogos futuros vêm da rodada atual. `src/lib/api.js` tem cache (5min) + retry/backoff (429/5xx).
 
 **Outro gotcha:** a chave `3` é compartilhada e bloqueia o IP sob rajada de requisições

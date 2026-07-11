@@ -735,6 +735,28 @@ img {
   color: var(--risk);
 }
 
+/* selo de confiança dos dados (card do jogo) */
+.conf-tag {
+  margin-left: 7px;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--stroke);
+  vertical-align: 1px;
+}
+.conf-tag.safe {
+  color: var(--safe);
+}
+.conf-tag.mid {
+  color: var(--mid);
+}
+.conf-tag.risk {
+  color: var(--risk);
+}
+
 /* aviso de dia com poucos jogos previsíveis */
 .ticket-note {
   font-size: 12px;

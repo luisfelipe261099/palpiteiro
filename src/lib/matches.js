@@ -103,6 +103,13 @@ function pastRounds(round) {
   return rounds
 }
 
+// peso das rodadas por idade (mais recente pesa mais) e "jogos virtuais" do
+// prior bayesiano: com ~6 jogos de amostra a força bruta é ruidosa, então
+// cada time começa com PRIOR_GAMES jogos fictícios na média da liga e os
+// resultados reais puxam a estimativa a partir daí (encolhimento).
+const ROUND_DECAY = 0.85
+const PRIOR_GAMES = 3
+
 // força ofensiva/defensiva + forma a partir dos resultados reais das últimas
 // rodadas (eventsround.php vem completo mesmo na chave gratuita).
 async function computeStrength(lg, season, round) {
@@ -110,6 +117,8 @@ async function computeStrength(lg, season, round) {
   const form = {}
   let totGoals = 0
   let totTeamGames = 0
+  let homeGoals = 0
+  let awayGoals = 0
 
   if (!isNaN(round) && round > 1 && season) {
     const rounds = pastRounds(round)
@@ -118,7 +127,8 @@ async function computeStrength(lg, season, round) {
         api(`eventsround.php?id=${lg.id}&r=${r}&s=${encodeURIComponent(season)}`).catch(() => ({ events: [] })),
       ),
     )
-    past.forEach((pd) => {
+    past.forEach((pd, ri) => {
+      const w = Math.pow(ROUND_DECAY, ri) // rodada mais recente pesa mais
       ;(pd.events || [])
         .filter((e) => e.intHomeScore != null && e.intAwayScore != null && e.intHomeScore !== '')
         .forEach((e) => {
@@ -126,12 +136,14 @@ async function computeStrength(lg, season, round) {
           const as = +e.intAwayScore
           const H = e.idHomeTeam
           const A = e.idAwayTeam
-          if (!stat[H]) stat[H] = { gf: 0, ga: 0, g: 0 }
-          if (!stat[A]) stat[A] = { gf: 0, ga: 0, g: 0 }
-          stat[H].gf += hs; stat[H].ga += as; stat[H].g++
-          stat[A].gf += as; stat[A].ga += hs; stat[A].g++
-          totGoals += hs + as
-          totTeamGames += 2
+          if (!stat[H]) stat[H] = { gf: 0, ga: 0, g: 0, n: 0 }
+          if (!stat[A]) stat[A] = { gf: 0, ga: 0, g: 0, n: 0 }
+          stat[H].gf += hs * w; stat[H].ga += as * w; stat[H].g += w; stat[H].n++
+          stat[A].gf += as * w; stat[A].ga += hs * w; stat[A].g += w; stat[A].n++
+          totGoals += (hs + as) * w
+          totTeamGames += 2 * w
+          homeGoals += hs * w
+          awayGoals += as * w
           pushForm(form, H, hs > as ? 'W' : hs === as ? 'D' : 'L')
           pushForm(form, A, as > hs ? 'W' : as === hs ? 'D' : 'L')
         })
@@ -142,26 +154,57 @@ async function computeStrength(lg, season, round) {
   const strength = {}
   Object.keys(stat).forEach((id) => {
     const s = stat[id]
-    const g = Math.max(1, s.g)
-    strength[id] = { att: s.gf / g / leagueAvg || 1, def: s.ga / g / leagueAvg || 1 }
+    // encolhimento bayesiano: (gols reais + prior na média) / (jogos + prior)
+    const att = (s.gf + PRIOR_GAMES * leagueAvg) / (s.g + PRIOR_GAMES) / leagueAvg
+    const def = (s.ga + PRIOR_GAMES * leagueAvg) / (s.g + PRIOR_GAMES) / leagueAvg
+    strength[id] = { att, def, n: s.n }
   })
-  return { strength, form, leagueAvg }
+
+  // vantagem de mando medida na própria amostra (gols do mandante / visitante),
+  // limitada a uma faixa plausível; sem amostra usa o fator padrão da liga.
+  const homeAdv =
+    awayGoals > 0 && totTeamGames >= 20 ? Math.min(1.3, Math.max(1.02, homeGoals / awayGoals)) : null
+
+  return { strength, form, leagueAvg, homeAdv }
+}
+
+// força final de um time: em ligas de clubes é o histórico (já encolhido);
+// em competições de seleções, MISTURA histórico no torneio com o ranking
+// (proxy FIFA), pesando o histórico pelo tamanho da amostra — com 1-2 jogos
+// o ranking ainda domina, com 5+ jogos o torneio fala mais alto.
+function teamStrength(hist, name, isNation) {
+  const rank = isNation ? natStrength(name) : null
+  if (hist && rank) {
+    const w = hist.n / (hist.n + 3)
+    return { att: w * hist.att + (1 - w) * rank.att, def: w * hist.def + (1 - w) * rank.def, n: hist.n }
+  }
+  return hist || rank
+}
+
+// confiança dos dados do jogo (0..1): quantos jogos reais sustentam a
+// previsão de cada lado; ranking conhecido de seleção vale meia confiança.
+function matchConfidence(hist, name, isNation) {
+  if (hist) return Math.min(1, hist.n / 6)
+  if (isNation && natStrengthKnown(name)) return 0.5
+  return 0
 }
 
 // monta os cards de jogo a partir de uma lista de fixtures já filtrada.
-function buildMatches(lg, fixtures, strength, form, leagueAvg) {
+function buildMatches(lg, fixtures, strength, form, leagueAvg, homeAdv) {
   const isNation = lg.kind === 'nation' // Copa do Mundo / Eurocopa
   return fixtures.map((e) => {
-    // histórico no torneio tem prioridade; em competição de seleções sem
-    // histórico, usa a força por ranking (proxy FIFA) como fallback.
-    const hs = strength[e.idHomeTeam] || (isNation ? natStrength(e.strHomeTeam) : null)
-    const as = strength[e.idAwayTeam] || (isNation ? natStrength(e.strAwayTeam) : null)
+    const hs = teamStrength(strength[e.idHomeTeam], e.strHomeTeam, isNation)
+    const as = teamStrength(strength[e.idAwayTeam], e.strAwayTeam, isNation)
     // lastro "real" = histórico na competição OU ranking conhecido (seleções).
     // Sem lastro nos dois lados (ex.: amistoso entre seleções de base/pequenas),
     // a previsão é genérica: marcamos como preliminar para avisar na UI e manter
     // o jogo fora dos bilhetes do dia.
     const homeReal = !!strength[e.idHomeTeam] || (isNation && !!natStrengthKnown(e.strHomeTeam))
     const awayReal = !!strength[e.idAwayTeam] || (isNation && !!natStrengthKnown(e.strAwayTeam))
+    const conf = Math.min(
+      matchConfidence(strength[e.idHomeTeam], e.strHomeTeam, isNation),
+      matchConfidence(strength[e.idAwayTeam], e.strAwayTeam, isNation),
+    )
     return {
       id: `${lg.id}-${e.idEvent}`,
       league: lg.local,
@@ -172,8 +215,12 @@ function buildMatches(lg, fixtures, strength, form, leagueAvg) {
       predictable: !!(hs && as),
       // previsão sem dado real por trás (não entra nos bilhetes do dia).
       preliminary: !homeReal && !awayReal,
-      // jogo de seleção em sede neutra: sem vantagem de mando.
-      homeAdv: isNation ? 1.0 : undefined,
+      // 0..1: quantos jogos reais sustentam a previsão (prioriza palpites
+      // com mais lastro nos bilhetes e sinaliza a confiança na UI)
+      conf,
+      // jogo de seleção em sede neutra: sem vantagem de mando; em liga,
+      // usa o mando medido na amostra da própria competição.
+      homeAdv: isNation ? 1.0 : homeAdv || undefined,
       ts: eventTimestamp(e), // timestamp bruto p/ ordenar jogos/grupos por data
       time: fmtTime(eventTimestamp(e)),
       home: {
@@ -205,8 +252,8 @@ async function loadLeagueFromFixtures(lg, fixtures) {
   const first = fixtures[0]
   const season = first.strSeason
   const round = parseInt(first.intRound, 10)
-  const { strength, form, leagueAvg } = await computeStrength(lg, season, round)
-  const matches = buildMatches(lg, fixtures, strength, form, leagueAvg)
+  const { strength, form, leagueAvg, homeAdv } = await computeStrength(lg, season, round)
+  const matches = buildMatches(lg, fixtures, strength, form, leagueAvg, homeAdv)
   return { id: lg.id, name: lg.local, flag: lg.flag, matches }
 }
 
