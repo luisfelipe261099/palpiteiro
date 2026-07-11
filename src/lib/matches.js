@@ -66,6 +66,23 @@ function isUnplayed(e) {
   return e.intHomeScore == null || e.intHomeScore === ''
 }
 
+// o evento é de HOJE (data local)?
+function isTodayLocal(e) {
+  const d = tsToDate(eventTimestamp(e))
+  if (!d) return false
+  const now = new Date()
+  return (
+    d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
+  )
+}
+
+// eventos que o app carrega: futuros (para palpites) e também os de HOJE já
+// iniciados/encerrados — a aba Ao Vivo acompanha placar e resultado do dia.
+// (Os iniciados ficam com `started: true` e não entram em palpites/bilhetes.)
+function keepEvent(e) {
+  return isUnplayed(e) || isTodayLocal(e)
+}
+
 // datas (YYYY-MM-DD em UTC) que cobrem a janela local de hoje+amanhã.
 // A janela local pode tocar até 3 datas UTC distintas conforme o fuso, então
 // varremos de -1 a +2 dias para não perder jogos nas bordas.
@@ -207,6 +224,10 @@ function buildMatches(lg, fixtures, strength, form, leagueAvg, homeAdv) {
     )
     return {
       id: `${lg.id}-${e.idEvent}`,
+      eventId: e.idEvent, // id bruto na API (p/ consultar placar ao vivo)
+      // já começou/terminou (tem placar): aparece só na aba Ao Vivo,
+      // fora das Partidas e dos bilhetes
+      started: !isUnplayed(e),
       league: lg.local,
       flag: lg.flag,
       leagueAvg,
@@ -274,7 +295,7 @@ async function discoverViaEventsDay() {
       const lg = LEAGUE_BY_ID.get(String(e.idLeague))
       if (!lg) continue
       if (!withinWindow(eventTimestamp(e))) continue
-      if (!isUnplayed(e)) continue // só jogos ainda não realizados
+      if (!keepEvent(e)) continue // futuros + jogos de hoje (p/ Ao Vivo)
       if (seen.has(e.idEvent)) continue
       seen.add(e.idEvent)
       if (!byLeague.has(lg.id)) byLeague.set(lg.id, { lg, fixtures: [] })
@@ -295,7 +316,9 @@ async function discoverCupWide(lg) {
     const d = await api(`eventsnextleague.php?id=${lg.id}`)
     const events = (d && d.events) || []
     nextEv =
-      events.find((e) => isUnplayed(e) && withinWindow(eventTimestamp(e), CUP_LOOKAHEAD_DAYS)) || null
+      // keepEvent: o único evento retornado pode ser o jogo EM ANDAMENTO —
+      // ainda serve de âncora (temporada/rodada) p/ carregar a rodada toda
+      events.find((e) => keepEvent(e) && withinWindow(eventTimestamp(e), CUP_LOOKAHEAD_DAYS)) || null
   } catch {
     nextEv = null
   }
@@ -314,7 +337,7 @@ async function discoverCupWide(lg) {
     for (const r of rounds) {
       try {
         const rd = await api(`eventsround.php?id=${lg.id}&r=${r}&s=${encodeURIComponent(season)}`)
-        fixtures.push(...(rd.events || []).filter(isUnplayed))
+        fixtures.push(...(rd.events || []).filter(keepEvent))
       } catch {
         /* fase sem dados ainda: segue para a próxima */
       }
@@ -334,7 +357,7 @@ async function discoverLeagueViaNext(lg) {
   try {
     const d = await api(`eventsnextleague.php?id=${lg.id}`)
     const events = (d && d.events) || []
-    ev = events.find((e) => isUnplayed(e) && withinWindow(eventTimestamp(e))) || null
+    ev = events.find((e) => keepEvent(e) && withinWindow(eventTimestamp(e))) || null
   } catch {
     ev = null
   }
@@ -346,7 +369,7 @@ async function discoverLeagueViaNext(lg) {
   if (!isNaN(round) && season) {
     try {
       const rd = await api(`eventsround.php?id=${lg.id}&r=${round}&s=${encodeURIComponent(season)}`)
-      fixtures = (rd.events || []).filter(isUnplayed).filter((e) => withinWindow(eventTimestamp(e)))
+      fixtures = (rd.events || []).filter(keepEvent).filter((e) => withinWindow(eventTimestamp(e)))
     } catch {
       fixtures = []
     }

@@ -65,6 +65,17 @@ Jogos futuros vêm da rodada atual. `src/lib/api.js` tem cache (5min) + retry/ba
 **Outro gotcha:** a chave `3` é compartilhada e bloqueia o IP sob rajada de requisições
 (retorna `HTTP 000`/conexão recusada, não 429). Testar com moderação.
 
+**Ao Vivo (aba):** livescore de verdade é premium na TheSportsDB, MAS
+`lookupevent.php` (chave 3) atualiza `intHomeScore/intAwayScore` e `strStatus`
+(1H/HT/2H/FT/AET/PEN/PST…) durante o jogo, com atraso de minutos. `src/lib/live.js`
+faz polling (75s, só com a aba visível) + estima o minuto pelo relógio (kickoff
++ pausa de 15min p/ intervalo) e recalcula 1X2/over/btts condicionando o Poisson
+pré-jogo ao placar atual e tempo restante (gols esperados restantes ∝ tempo).
+GOTCHA: jogos com placar eram filtrados por `isUnplayed` e SUMIAM do app ao
+começar — `keepEvent` mantém eventos de HOJE (started:true), que ficam fora de
+Partidas/bilhetes e vivem só na aba Ao Vivo. O anchor do `eventsnextleague`
+(1 evento só) também pode ser o jogo em andamento.
+
 Ligas ativas são autodetectadas (em junho/2026 só Brasileirão A e MLS; europeias em recesso).
 Análise IA via Google Gemini (`gemini-2.5-flash` + google_search); chave do `.env` ou
 sobrescrita em `localStorage` (`palpiteiro_gemini`) pelo botão ⚙️.

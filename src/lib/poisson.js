@@ -11,9 +11,10 @@ function factorial(n) {
   for (let i = 2; i <= n; i++) r *= i
   return r
 }
-function poisson(k, lambda) {
+export function poissonPmf(k, lambda) {
   return (Math.pow(lambda, k) * Math.exp(-lambda)) / factorial(k)
 }
+const poisson = poissonPmf
 
 // fator τ de Dixon-Coles para os placares 0-0, 1-0, 0-1 e 1-1
 function dcTau(h, a, lh, la) {

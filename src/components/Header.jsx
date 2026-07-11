@@ -1,6 +1,6 @@
-import { RefreshCw, Swords, Ticket } from 'lucide-react'
+import { RefreshCw, Swords, Ticket, Radio } from 'lucide-react'
 
-export default function Header({ view, onView, onRefresh, refreshing }) {
+export default function Header({ view, onView, onRefresh, refreshing, liveNow }) {
   return (
     <header className="header">
       <div className="wrap">
@@ -27,8 +27,12 @@ export default function Header({ view, onView, onRefresh, refreshing }) {
           <button className="vbtn" data-active={view === 'matches'} onClick={() => onView('matches')}>
             <Swords size={15} /> Partidas
           </button>
+          <button className="vbtn" data-active={view === 'live'} onClick={() => onView('live')}>
+            <Radio size={15} /> Ao Vivo
+            {liveNow && <span className="nav-livedot" />}
+          </button>
           <button className="vbtn" data-active={view === 'ready'} onClick={() => onView('ready')}>
-            <Ticket size={15} /> Bilhetes do dia
+            <Ticket size={15} /> Bilhetes
           </button>
         </div>
       </div>

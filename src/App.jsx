@@ -4,9 +4,11 @@ import Header from './components/Header.jsx'
 import SearchBar from './components/SearchBar.jsx'
 import LeagueGroup from './components/LeagueGroup.jsx'
 import ReadyTickets from './components/ReadyTickets.jsx'
+import Live from './components/Live.jsx'
 import BetSlip from './components/BetSlip.jsx'
 import Admin from './components/Admin.jsx'
 import { useMatches } from './hooks/useMatches.js'
+import { inLiveWindow } from './lib/live.js'
 
 const norm = (s) =>
   s
@@ -24,17 +26,23 @@ export default function App() {
   }, [])
 
   const { groups, loading, error, reload } = useMatches()
-  const [view, setView] = useState('matches') // matches | ready
+  const [view, setView] = useState('matches') // matches | live | ready
   const [query, setQuery] = useState('')
 
+  // há jogo dentro da janela ao vivo agora? (só relógio, sem rede — acende o
+  // pontinho na aba Ao Vivo)
+  const liveNow = useMemo(() => groups.some((g) => g.matches.some((m) => inLiveWindow(m))), [groups])
+
+  // Partidas mostra só jogos futuros (os já iniciados vivem na aba Ao Vivo);
   // aplica busca por texto (time, jogo ou liga)
   const filtered = useMemo(() => {
     const q = norm(query.trim())
-    if (!q) return groups
     return groups
       .map((g) => ({
         ...g,
         matches: g.matches.filter((m) => {
+          if (m.started) return false
+          if (!q) return true
           const hay = norm(`${m.home.name} ${m.away.name} ${m.home.short} ${m.away.short} ${g.name}`)
           return hay.includes(q)
         }),
@@ -54,10 +62,13 @@ export default function App() {
         onView={setView}
         onRefresh={() => reload({ fresh: true })}
         refreshing={loading}
+        liveNow={liveNow}
       />
 
       <main className="wrap">
-        {view === 'ready' ? (
+        {view === 'live' ? (
+          <Live groups={groups} loading={loading} error={error} />
+        ) : view === 'ready' ? (
           <ReadyTickets
             groups={groups}
             loading={loading}

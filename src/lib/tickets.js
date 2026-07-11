@@ -33,7 +33,8 @@ function allPicks(groups) {
   const out = []
   groups.forEach((g) =>
     g.matches.forEach((m) => {
-      if (!m.predictable || m.preliminary) return // ignora jogos sem previsão confiável / sem dado real
+      // ignora jogos sem previsão confiável / sem dado real / já iniciados
+      if (!m.predictable || m.preliminary || m.started) return
       const pr = predict(m)
       const base = {
         matchId: m.id,
