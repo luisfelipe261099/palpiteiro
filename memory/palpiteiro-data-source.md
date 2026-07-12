@@ -39,10 +39,12 @@ probabilidade (safe 0.74 / mid 0.56 / risk 0.40), determinístico por daySeed.
 
 **IDs de competição verificados (via WebFetch):** 4429 Copa do Mundo, 4503 Mundial
 de Clubes (FIFA Club WC), 4502 Eurocopa, 4480 Champions, 4481 Europa League, 5071
-Conference League. Ligas: 4351 Brasileirão A, 4350 Série B, 4346 MLS, 4328 Premier,
-4335 La Liga, 4332 Serie A ITA, 4331 Bundesliga, 4334 Ligue 1, 4344 Primeira, 4337
-Eredivisie. Libertadores/Sudamericana/Copa do Brasil: IDs não obtidos (all_leagues
-truncado) — precisam de chave registrada.
+Conference League. Ligas: 4351 Brasileirão A, **4404 Série B** (CUIDADO: 4350 parece
+Série B mas é a liga MEXICANA — bug que escondeu a Série B até jul/2026), 4725 Copa
+do Brasil, 4625 Série C, 4346 MLS, 4328 Premier, 4335 La Liga, 4332 Serie A ITA,
+4331 Bundesliga, 4334 Ligue 1, 4344 Primeira, 4337 Eredivisie. IDs brasileiros saem
+de `search_all_leagues.php?c=Brazil` (truncado a ~5, mas mostrou os principais).
+Libertadores/Sudamericana: IDs não obtidos — precisam de chave registrada.
 
 **Copas em rodada 1 (sem histórico):** times ficam sem força calculável → match marcado
 `predictable:false` e o card mostra aviso "previsão preliminar" em vez de números falsos.
