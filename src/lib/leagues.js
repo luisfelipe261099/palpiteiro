@@ -6,10 +6,11 @@
 // ativas. Em junho/2026, por ex., a Copa do Mundo está acontecendo e as
 // ligas europeias / Champions estão em recesso.
 //
-// IDs abaixo foram conferidos via API (TheSportsDB).
-// Obs.: Copa Libertadores / Sudamericana / Copa do Brasil não puderam ser
-// incluídas porque o endpoint de listagem da chave gratuita vem truncado e
-// não expõe esses IDs. Com uma chave registrada dá para adicioná-las.
+// IDs abaixo foram conferidos via API (TheSportsDB) — cuidado: já houve ID
+// errado aqui (4350 parecia Série B mas é a liga mexicana; a Série B real é
+// 4404, via search_all_leagues.php?c=Brazil).
+// Obs.: Copa Libertadores / Sudamericana não puderam ser incluídas porque o
+// endpoint de listagem da chave gratuita vem truncado e não expõe esses IDs.
 export const LEAGUES = [
   // ── Seleções / mundiais ── (kind 'nation' usa força por ranking quando
   //    ainda não há histórico no torneio)
@@ -27,7 +28,8 @@ export const LEAGUES = [
   { id: '5071', name: 'UEFA Conference League', local: 'Conference League', flag: '🟢', cup: true },
   // ── Ligas nacionais ──
   { id: '4351', name: 'Brazilian Serie A', local: 'Brasileirão Série A', flag: '🇧🇷' },
-  { id: '4350', name: 'Brazilian Serie B', local: 'Brasileirão Série B', flag: '🇧🇷' },
+  { id: '4404', name: 'Brazilian Serie B', local: 'Brasileirão Série B', flag: '🇧🇷' },
+  { id: '4725', name: 'Copa do Brasil', local: 'Copa do Brasil', flag: '🏆', cup: true },
   { id: '4346', name: 'American Major League Soccer', local: 'MLS', flag: '🇺🇸' },
   { id: '4328', name: 'English Premier League', local: 'Premier League', flag: '🏴' },
   { id: '4335', name: 'Spanish La Liga', local: 'La Liga', flag: '🇪🇸' },

@@ -328,12 +328,11 @@ async function discoverCupWide(lg) {
   const round = parseInt(nextEv.intRound, 10)
   let fixtures = []
   if (!isNaN(round) && season) {
-    // no mata-mata, além da rodada atual busca as fases seguintes (semi,
-    // 3º lugar, final) que já têm confronto definido dentro da janela —
-    // ex.: durante as quartas da Copa, a semifinal já agendada aparece.
-    const rounds = KNOCKOUT_ROUNDS.includes(round)
-      ? KNOCKOUT_ROUNDS.filter((r) => r >= round)
-      : [round]
+    // no mata-mata busca TODAS as fases (quartas, semi, 3º lugar, final):
+    // o "próximo jogo" âncora pode apontar para uma fase à frente enquanto
+    // ainda há jogos da fase anterior por disputar (ex.: âncora na semi com
+    // quartas em andamento) — filtrar por >= rodada da âncora perderia jogos.
+    const rounds = KNOCKOUT_ROUNDS.includes(round) ? KNOCKOUT_ROUNDS : [round]
     for (const r of rounds) {
       try {
         const rd = await api(`eventsround.php?id=${lg.id}&r=${r}&s=${encodeURIComponent(season)}`)
