@@ -3,6 +3,9 @@ dist
 dist-ssr
 *.local
 
+# cache local do backtest (scripts/backtest.mjs)
+.backtest-cache
+
 # variáveis de ambiente com chaves — NÃO commitar
 .env
 .env.*.local

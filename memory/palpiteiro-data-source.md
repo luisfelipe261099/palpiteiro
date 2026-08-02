@@ -57,8 +57,9 @@ determinístico por daySeed. `buildDailyTickets` retorna `{tickets, dayStart,
 matchCount}`: se hoje não tem rodada, monta para o PRÓXIMO dia com jogos
 (span de 2 dias a partir dele) e a UI avisa ("bilhetes para sexta 07/08").
 `toOdd = max(1.01, (1/p)*0.94)` — margem DESCONTADA como casa real (antes
-*1.06 inflava odds e superestimava retorno no simulador). `bestPick` só
-sugere vitória simples com p≥0.55.
+*1.06 inflava odds e superestimava retorno no simulador). Mercados de
+gols/btts só entram no pool com p≥0.55 (no backtest, pernas ~50-54%
+acertavam como moeda).
 
 **IDs de competição verificados (via WebFetch):** 4429 Copa do Mundo, 4503 Mundial
 de Clubes (FIFA Club WC), 4502 Eurocopa, 4480 Champions, 4481 Europa League, 5071
@@ -76,15 +77,27 @@ Em junho/2026 a Copa do Mundo (4429) está ativa; Champions/europeias em recesso
 **Solução adotada:** força ofensiva/defensiva e forma são calculadas dos RESULTADOS reais
 das últimas ~6 rodadas (`eventsround.php?id=&r=&s=`), com melhorias de calibração:
 - **decaimento por rodada** (0.85^idade — rodada recente pesa mais);
-- **encolhimento bayesiano** (PRIOR_GAMES=3 jogos virtuais na média da liga) —
-  sem isso, amostras de 1-2 jogos geravam absurdos (ex.: Suíça favorita sobre a Argentina);
+- **encolhimento bayesiano** (**PRIOR_GAMES=6**, calibrado por backtest) —
+  prior 3 dava palpites 67,5% certeiros; prior 6 dá 72-77% (n=576 jogos reais);
 - **mando de campo medido na amostra** (golsCasa/golsFora, clamp 1.02–1.30; seleção = 1.0);
 - **seleções: blend** histórico do torneio × ranking curado, peso n/(n+3);
-- **Poisson com correção de Dixon-Coles** (rho=-0.11, empates/placares baixos) em poisson.js,
-  btts/over calculados da grade corrigida, expH/expA clamp 0.2–4.5;
-- `bestPick` só sugere vitória simples com p≥0.55 (senão dupla chance);
+- **Poisson com correção de Dixon-Coles** (rho=-0.11; parametrizável via
+  `predict(m, {rho})`) em poisson.js, expH/expA clamp 0.2–4.5, `topScores`
+  (3 placares mais prováveis da grade — usados no card);
+- **btts/over25 CALIBRADOS**: o modelo cru superestimava gols (+2.5 previsto
+  51%×real 47%) — predict() aplica shift (-0.035 over / -0.025 btts) +
+  encolhimento 0.9 rumo a 50%; depois disso previsto≈real no backtest;
+- `bestPick` só sugere vitória simples com p≥0.60 (senão dupla chance) —
+  na faixa exibida 50-60% o acerto real era só ~38%;
 - cada match tem `conf` 0..1 (lastro de dados; min dos dois lados) — mostrado
   como selo no MatchCard e usado como bônus de score nos bilhetes (safe pesa mais).
+
+**Backtest (scripts/backtest.mjs):** roda o modelo contra rodadas REAIS já
+disputadas (Série A/B 2026 + Premier 2025-26, ~576 jogos): treina só com as
+rodadas anteriores à alvo, mede acc 1X2, Brier, acerto do bestPick, o/u, btts
+e calibração por faixa. Cacheia respostas em `.backtest-cache/` (gitignored) —
+re-rodar é grátis. computeStrength/predict/bestPick aceitam opts p/ variar
+hiperparâmetros. SEMPRE re-rodar antes de mexer em parâmetro de modelo.
 Jogos futuros vêm da rodada atual. `src/lib/api.js` tem cache (5min) + retry/backoff (429/5xx).
 
 **Outro gotcha:** a chave `3` é compartilhada e bloqueia o IP sob rajada de requisições

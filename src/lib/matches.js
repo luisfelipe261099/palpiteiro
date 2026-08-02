@@ -117,30 +117,38 @@ const KNOCKOUT_ROUNDS = [125, 150, 160, 200]
 
 // rodadas com resultados relevantes para calcular força/forma, da mais
 // recente para a mais antiga (a ordem importa: a forma usa os 5 primeiros
-// resultados encontrados). Em rodada normal, as ~6 anteriores; no mata-mata
-// (códigos especiais tipo 125), as fases eliminatórias até a atual + a fase
-// de grupos (3..1) — senão buscaríamos rodadas 124, 123… que não existem.
-// Incluir a rodada atual é seguro (só resultados finalizados contam) e pega
-// os confrontos da fase já disputados.
-function pastRounds(round) {
+// resultados encontrados). Em rodada normal, as `depth` anteriores; no
+// mata-mata (códigos especiais tipo 125), as fases eliminatórias até a atual
+// + a fase de grupos (3..1) — senão buscaríamos rodadas 124, 123… que não
+// existem. Incluir a rodada atual é seguro (só resultados finalizados contam)
+// e pega os confrontos da fase já disputados.
+function pastRounds(round, depth = STRENGTH_DEPTH) {
   if (KNOCKOUT_ROUNDS.includes(round)) {
     return [...KNOCKOUT_ROUNDS.filter((r) => r <= round).reverse(), 3, 2, 1]
   }
   const rounds = []
-  for (let r = round - 1; r >= Math.max(1, round - 6); r--) rounds.push(r)
+  for (let r = round - 1; r >= Math.max(1, round - depth); r--) rounds.push(r)
   return rounds
 }
 
 // peso das rodadas por idade (mais recente pesa mais) e "jogos virtuais" do
-// prior bayesiano: com ~6 jogos de amostra a força bruta é ruidosa, então
+// prior bayesiano: com poucos jogos de amostra a força bruta é ruidosa, então
 // cada time começa com PRIOR_GAMES jogos fictícios na média da liga e os
 // resultados reais puxam a estimativa a partir daí (encolhimento).
+// Valores CALIBRADOS POR BACKTEST (scripts/backtest.mjs) sobre Série A/B 2026
+// + Premier League 2025-26 (286 jogos) — não mexer no olho: rodar o backtest.
+// prior 6 foi o maior ganho: palpite sugerido saiu de 71,7% para 76,6% de
+// acerto, com probabilidade exibida ligeiramente conservadora (real ≥ prevista
+// em todas as faixas de calibração).
 const ROUND_DECAY = 0.85
-const PRIOR_GAMES = 3
+const PRIOR_GAMES = 6
+const STRENGTH_DEPTH = 6
 
 // força ofensiva/defensiva + forma a partir dos resultados reais das últimas
-// rodadas (eventsround.php vem completo mesmo na chave gratuita).
-async function computeStrength(lg, season, round) {
+// rodadas (eventsround.php vem completo na chave gratuita "123").
+// `opts` permite variar os hiperparâmetros (usado pelo backtest).
+export async function computeStrength(lg, season, round, opts = {}) {
+  const { decay = ROUND_DECAY, prior = PRIOR_GAMES, depth = STRENGTH_DEPTH } = opts
   const stat = {}
   const form = {}
   let totGoals = 0
@@ -149,14 +157,14 @@ async function computeStrength(lg, season, round) {
   let awayGoals = 0
 
   if (!isNaN(round) && round > 1 && season) {
-    const rounds = pastRounds(round)
+    const rounds = pastRounds(round, depth)
     const past = await Promise.all(
       rounds.map((r) =>
         api(`eventsround.php?id=${lg.id}&r=${r}&s=${encodeURIComponent(season)}`).catch(() => ({ events: [] })),
       ),
     )
     past.forEach((pd, ri) => {
-      const w = Math.pow(ROUND_DECAY, ri) // rodada mais recente pesa mais
+      const w = Math.pow(decay, ri) // rodada mais recente pesa mais
       ;(pd.events || [])
         .filter((e) => e.intHomeScore != null && e.intAwayScore != null && e.intHomeScore !== '')
         .forEach((e) => {
@@ -183,8 +191,8 @@ async function computeStrength(lg, season, round) {
   Object.keys(stat).forEach((id) => {
     const s = stat[id]
     // encolhimento bayesiano: (gols reais + prior na média) / (jogos + prior)
-    const att = (s.gf + PRIOR_GAMES * leagueAvg) / (s.g + PRIOR_GAMES) / leagueAvg
-    const def = (s.ga + PRIOR_GAMES * leagueAvg) / (s.g + PRIOR_GAMES) / leagueAvg
+    const att = (s.gf + prior * leagueAvg) / (s.g + prior) / leagueAvg
+    const def = (s.ga + prior * leagueAvg) / (s.g + prior) / leagueAvg
     strength[id] = { att, def, n: s.n }
   })
 

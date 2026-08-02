@@ -5,6 +5,7 @@ export default function StakeSimulator({ odd, prob }) {
   const [stake, setStake] = useState('10')
   const value = Number(stake) || 0
   const ret = value * odd
+  const lucro = ret - value
 
   return (
     <div className="stake">
@@ -27,7 +28,10 @@ export default function StakeSimulator({ odd, prob }) {
         </div>
         <div className="stake-box accent">
           <span className="k">Retorno</span>
-          <span className="v">R${ret.toFixed(2)}</span>
+          <span className="v">
+            R${ret.toFixed(2)}
+            {value > 0 && <em className="stake-lucro"> +{lucro.toFixed(2)}</em>}
+          </span>
         </div>
       </div>
     </div>

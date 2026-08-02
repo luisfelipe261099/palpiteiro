@@ -6,9 +6,7 @@
 // O minuto do jogo não vem na API: é estimado pelo relógio a partir do
 // horário de início (com pausa de ~15min para o intervalo).
 import { predict, poissonPmf } from './poisson.js'
-
-const KEY = import.meta.env.VITE_TSDB_KEY || '3'
-const BASE = `https://www.thesportsdb.com/api/v1/json/${KEY}/`
+import { BASE } from './api.js'
 
 // mesmo parser de timestamp usado em matches.js (UTC -> Date local)
 export function tsToDate(ts) {

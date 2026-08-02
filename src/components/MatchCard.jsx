@@ -7,18 +7,62 @@ import AiPanel from './AiPanel.jsx'
 import { predict, bestPick, tier, toOdd, pct } from '../lib/poisson.js'
 import { useBetSlip } from '../context/BetSlipContext.jsx'
 
+// resumo da forma: "3V-1E-1D" (ou null sem jogos)
+function formTxt(f) {
+  if (!f || !f.length) return null
+  const w = f.filter((x) => x === 'W').length
+  const d = f.filter((x) => x === 'D').length
+  return `${w}V-${d}E-${f.length - w - d}D`
+}
+
+// análise em linguagem natural montada dos números do modelo: forma dos dois
+// lados, ataque/defesa vs média da liga e fator casa. Só afirma o que os
+// dados sustentam (cada trecho tem um limiar mínimo para entrar no texto).
 function reason(m, pr) {
-  const fav = pr.pH > pr.pA ? m.home : m.away
-  const f = fav.form
-  const wins = f.filter((x) => x === 'W').length
-  const formTxt = f.length ? `venceu ${wins} dos últimos ${f.length}` : 'tem ataque/defesa superiores'
+  const favHome = pr.pH >= pr.pA
+  const fav = favHome ? m.home : m.away
+  const dog = favHome ? m.away : m.home
+  const gap = Math.abs(pr.pH - pr.pA)
+
+  const bits = []
+  const ff = formTxt(fav.form)
+  if (ff) bits.push(<>vem de <b>{ff}</b> nos últimos jogos</>)
+  if (fav.att >= 1.06) bits.push(<>ataque <b>{Math.round((fav.att - 1) * 100)}% acima</b> da média da liga</>)
+  if (dog.def >= 1.06)
+    bits.push(<>a defesa do {dog.short} sofre <b>{Math.round((dog.def - 1) * 100)}% mais gols</b> que a média</>)
+  if (favHome && (m.homeAdv || 1.12) >= 1.05) bits.push(<>joga <b>em casa</b></>)
+  if (!favHome) bits.push(<>mesmo <b>jogando fora</b></>)
+
+  const df = formTxt(dog.form)
   return (
     <>
-      Por quê: <b>{fav.name}</b> {formTxt}. Gols esperados{' '}
+      Por quê: {gap < 0.08 ? <>jogo <b>equilibrado</b> — <b>{fav.name}</b> tem leve vantagem</> : <b>{fav.name}</b>}
+      {bits.map((b, i) => (
+        <span key={i}>
+          {i === 0 ? ' ' : i === bits.length - 1 ? ' e ' : ', '}
+          {b}
+        </span>
+      ))}
+      . {df ? <>Do outro lado, {dog.name} vem de {df}. </> : null}
+      Gols esperados{' '}
       <b>
         {pr.expH.toFixed(1)}–{pr.expA.toFixed(1)}
       </b>
-      . Chance de ambas marcarem <b>{pct(pr.btts)}%</b>.
+      {pr.topScores && pr.topScores.length ? (
+        <>
+          ; placares mais prováveis:{' '}
+          {pr.topScores.slice(0, 2).map((s, i) => (
+            <span key={i}>
+              {i > 0 && ' e '}
+              <b>
+                {s.h}-{s.a}
+              </b>{' '}
+              ({pct(s.p)}%)
+            </span>
+          ))}
+        </>
+      ) : null}
+      .
     </>
   )
 }
@@ -80,7 +124,9 @@ export default function MatchCard({ match, index }) {
         <div className="chip">
           <div className="k">Placar provável</div>
           <div className="v">
-            {Math.round(pr.expH)}-{Math.round(pr.expA)}
+            {pr.topScores && pr.topScores.length
+              ? `${pr.topScores[0].h}-${pr.topScores[0].a} (${pct(pr.topScores[0].p)}%)`
+              : `${Math.round(pr.expH)}-${Math.round(pr.expA)}`}
           </div>
         </div>
       </div>
@@ -133,7 +179,12 @@ export default function MatchCard({ match, index }) {
         </div>
       )}
 
-      <AiPanel home={match.home.name} away={match.away.name} league={match.league} />
+      <AiPanel
+        home={match.home.name}
+        away={match.away.name}
+        league={match.league}
+        model={{ pH: pr.pH, pD: pr.pD, pA: pr.pA, pickLabel: pick.label }}
+      />
     </motion.div>
   )
 }

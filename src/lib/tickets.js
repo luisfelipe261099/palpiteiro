@@ -90,13 +90,15 @@ function allPicks(groups) {
         else add('dc', `Empate ou ${m.away.short}`, pr.pD + pr.pA)
       }
 
-      // 2) total de gols: o lado mais provável de +/-2.5
-      if (pr.over25 >= 0.5) add('goals', 'Mais de 2.5 gols', pr.over25)
-      else add('goals', 'Menos de 2.5 gols', 1 - pr.over25)
+      // 2) total de gols: o lado mais provável de +/-2.5 — só entra com
+      // margem real (>=55%): no backtest, pernas de gols ~50-54% acertavam
+      // como moeda e derrubavam bilhetes inteiros
+      if (pr.over25 >= 0.55) add('goals', 'Mais de 2.5 gols', pr.over25)
+      else if (1 - pr.over25 >= 0.55) add('goals', 'Menos de 2.5 gols', 1 - pr.over25)
 
-      // 3) ambas marcam: o lado mais provável
-      if (pr.btts >= 0.5) add('btts', 'Ambas marcam: Sim', pr.btts)
-      else add('btts', 'Ambas marcam: Não', 1 - pr.btts)
+      // 3) ambas marcam: o lado mais provável, com a mesma barra mínima
+      if (pr.btts >= 0.55) add('btts', 'Ambas marcam: Sim', pr.btts)
+      else if (1 - pr.btts >= 0.55) add('btts', 'Ambas marcam: Não', 1 - pr.btts)
     }),
   )
   return out
@@ -218,8 +220,17 @@ export function buildDailyTickets(groups, daySeed) {
     tickets.push(t)
   }
 
-  // exibe sempre na ordem Seguro · Médio · Arriscado
-  const order = { safe: 0, mid: 1, risk: 2 }
-  tickets.sort((a, b) => order[a.key] - order[b.key])
+  // os rótulos seguem a probabilidade REAL do combinado: Seguro = mais
+  // provável, Arriscado = menos. Em dias de pool pequeno os perfis podem
+  // sair "invertidos" (ex.: médio de 4 pernas menos provável que o
+  // arriscado de 3) — reatribuir os títulos garante coerência com o que o
+  // usuário vê (determinístico: mesma entrada, mesmos rótulos no admin).
+  tickets.sort((a, b) => b.prob - a.prob)
+  tickets.forEach((t, i) => {
+    const prof = PROFILES[Math.min(i, PROFILES.length - 1)]
+    t.key = prof.key
+    t.title = prof.title
+    t.cls = prof.cls
+  })
   return { tickets, dayStart, matchCount }
 }

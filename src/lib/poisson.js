@@ -16,16 +16,8 @@ export function poissonPmf(k, lambda) {
 }
 const poisson = poissonPmf
 
-// fator τ de Dixon-Coles para os placares 0-0, 1-0, 0-1 e 1-1
-function dcTau(h, a, lh, la) {
-  if (h === 0 && a === 0) return 1 - lh * la * DC_RHO
-  if (h === 1 && a === 0) return 1 + la * DC_RHO
-  if (h === 0 && a === 1) return 1 + lh * DC_RHO
-  if (h === 1 && a === 1) return 1 - DC_RHO
-  return 1
-}
-
-export function predict(match) {
+export function predict(match, opts = {}) {
+  const rho = opts.rho != null ? opts.rho : DC_RHO
   const avg = match.leagueAvg || 1.35
   const adv = match.homeAdv != null ? match.homeAdv : HOME_ADV
   // limites sanos: amostras pequenas podem gerar taxas extremas de gols
@@ -33,16 +25,26 @@ export function predict(match) {
   const expH = clamp(avg * match.home.att * match.away.def * adv)
   const expA = clamp(avg * match.away.att * match.home.def)
 
+  const tau = (h, a) => {
+    if (h === 0 && a === 0) return 1 - expH * expA * rho
+    if (h === 1 && a === 0) return 1 + expA * rho
+    if (h === 0 && a === 1) return 1 + expH * rho
+    if (h === 1 && a === 1) return 1 - rho
+    return 1
+  }
+
   let pH = 0,
     pD = 0,
     pA = 0,
     under = 0,
     btts = 0,
     total = 0
+  const scores = []
   for (let h = 0; h <= 8; h++) {
     for (let a = 0; a <= 8; a++) {
-      const p = poisson(h, expH) * poisson(a, expA) * dcTau(h, a, expH, expA)
+      const p = poisson(h, expH) * poisson(a, expA) * tau(h, a)
       total += p
+      scores.push({ h, a, p })
       if (h > a) pH += p
       else if (h === a) pD += p
       else pA += p
@@ -50,18 +52,32 @@ export function predict(match) {
       if (h > 0 && a > 0) btts += p
     }
   }
+  // placares mais prováveis da grade corrigida (p/ análise do card — melhor
+  // que arredondar gols esperados, que distorce: exp 1.4-1.1 "viraria" 1-1
+  // mesmo quando 1-0 é mais provável)
+  const topScores = scores
+    .sort((a, b) => b.p - a.p)
+    .slice(0, 3)
+    .map((s) => ({ h: s.h, a: s.a, p: s.p / total }))
+
+  // calibração dos mercados de gols, medida no backtest (286 jogos): o modelo
+  // superestimava gols (+2.5 previsto 51% × real 47%; btts 55% × 52%).
+  // Desloca o viés e encolhe levemente rumo a 50% (mercado menos previsível
+  // do que a grade sugere).
+  const calib = (p, shift) => Math.min(0.97, Math.max(0.03, 0.5 + (p - 0.5 - shift) * 0.9))
   return {
     pH: pH / total,
     pD: pD / total,
     pA: pA / total,
-    btts: btts / total,
-    over25: 1 - under / total,
+    btts: calib(btts / total, 0.025),
+    over25: calib(1 - under / total, 0.035),
     expH,
     expA,
+    topScores,
   }
 }
 
-export function bestPick(pr, m) {
+export function bestPick(pr, m, minWin = 0.6) {
   const opts = [
     { key: '1', label: `Vitória ${m.home.name}`, p: pr.pH },
     { key: 'X', label: 'Empate', p: pr.pD },
@@ -69,9 +85,10 @@ export function bestPick(pr, m) {
   ].sort((a, b) => b.p - a.p)
 
   let pick = opts[0]
-  // só recomenda vitória simples com favorito de verdade (≥55%);
-  // abaixo disso a dupla chance erra bem menos
-  if (pick.p < 0.55) {
+  // só recomenda vitória simples com favorito claro (>=60%; no backtest,
+  // palpites na faixa 50-60% exibida acertavam só ~38% — abaixo do corte a
+  // dupla chance erra bem menos)
+  if (pick.p < minWin) {
     // sem favorito claro: sugere dupla chance mais provável
     pick = [
       { key: '1X', label: `${m.home.short} ou Empate`, p: pr.pH + pr.pD },

@@ -9,13 +9,13 @@ const ADJ = {
   neutro: 'não muda o equilíbrio',
 }
 
-export default function AiPanel({ home, away, league }) {
+export default function AiPanel({ home, away, league, model }) {
   const [status, setStatus] = useState('idle') // idle | loading | done
   const [res, setRes] = useState(null)
 
   async function run() {
     setStatus('loading')
-    const r = await analyzeMatch(home, away, league)
+    const r = await analyzeMatch(home, away, league, model)
     if (r.needKey) {
       setRes({ ok: false, msg: 'Análise IA indisponível (chave do Gemini não configurada no servidor).' })
     } else {

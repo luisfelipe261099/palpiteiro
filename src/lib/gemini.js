@@ -6,18 +6,29 @@
 const ENV_KEY = import.meta.env.VITE_GEMINI_KEY || ''
 const MODEL = 'gemini-2.5-flash'
 
-export async function analyzeMatch(home, away, league) {
+// `model` (opcional): números do nosso modelo estatístico, para a IA avaliar
+// se as notícias REFORÇAM ou CONTRARIAM o palpite — análise ancorada, em vez
+// de opinião solta.
+export async function analyzeMatch(home, away, league, model) {
   const key = ENV_KEY
   if (!key) return { ok: false, needKey: true }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(key)}`
+  const ctx = model
+    ? `Nosso modelo estatístico (Poisson sobre resultados reais) estima: ` +
+      `vitória do ${home} ${Math.round(model.pH * 100)}%, empate ${Math.round(model.pD * 100)}%, ` +
+      `vitória do ${away} ${Math.round(model.pA * 100)}%; palpite sugerido: "${model.pickLabel}". ` +
+      `Diga nos fatores se as notícias REFORÇAM ou ENFRAQUECEM esse palpite. `
+    : ''
   const prompt =
     `Você é um analista de futebol. Use a busca para achar notícias MUITO recentes ` +
     `sobre o jogo "${home} x ${away}" (${league}): lesões, suspensões, escalação provável, ` +
-    `forma recente e fatores que afetem o resultado. ` +
+    `desfalques, forma recente e fatores que afetem o resultado. ${ctx}` +
     `Responda APENAS com JSON válido, sem markdown e sem texto extra, no formato: ` +
     `{"resumo":"2 frases curtas","fatores":["fator 1","fator 2","fator 3"],` +
-    `"ajuste":"casa|fora|neutro","confianca":"alta|media|baixa"}. Em português.`
+    `"ajuste":"casa|fora|neutro","confianca":"alta|media|baixa"}. ` +
+    `"ajuste" = para que lado as NOTÍCIAS movem o jogo em relação aos números acima ` +
+    `(neutro se não movem). Em português.`
 
   try {
     const r = await fetch(url, {
