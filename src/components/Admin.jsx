@@ -29,7 +29,7 @@ export default function Admin() {
   const now = new Date()
   const daySeed = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`
   const date = todayKey()
-  const tickets = useMemo(() => buildDailyTickets(groups, daySeed), [groups, daySeed])
+  const { tickets } = useMemo(() => buildDailyTickets(groups, daySeed), [groups, daySeed])
 
   const [secret, setSecret] = useState(() => localStorage.getItem(SECRET_KEY) || '')
   const [codes, setCodes] = useState({})

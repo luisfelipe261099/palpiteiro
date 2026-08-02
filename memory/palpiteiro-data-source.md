@@ -12,18 +12,34 @@ Estrutura: `src/lib` (api, poisson, matches, gemini, format, leagues), `src/comp
 A versão single-file antiga foi preservada em `public/standalone.html`.
 UI premium estilo Apple (glassmorphism, Inter, framer-motion, lucide-react).
 
-**Fonte de dados:** API **TheSportsDB** (chave pública `3`). CORS aberto, funciona client-side.
+**Fonte de dados:** API **TheSportsDB** (chave pública **`123`** desde ago/2026).
+CORS aberto, funciona client-side.
 
-**Gotcha não óbvio:** a chave gratuita `3` TRUNCA quase tudo:
-- `lookuptable.php` → só ~5 times.
+**Gotcha não óbvio — CHAVES:** em ago/2026 a chave pública `3` passou a truncar
+`eventsround.php` em ~5 eventos (metade de uma rodada da Série A!) e
+`eventsseason.php` em 5 — isso zerava força/forma e esvaziava os bilhetes.
+A chave pública `123` retorna a RODADA COMPLETA (10/10 verificado) e
+`eventsseason` até 15. Padrão do app mudado para `123` (api.js/.env.example).
+Truncamentos que PERMANECEM mesmo na `123`:
 - `eventsnextleague.php` → só 1 evento.
-- `eventslast.php` → só 1 evento.
-- `all_leagues.php` → só ~10 ligas europeias.
-- `eventsday.php` → passou a vir truncado também (~3 eventos/dia, verificado
-  em jul/2026). A descoberta de ligas nacionais NÃO pode depender só dele:
-  `matches.js` complementa com `eventsnextleague` por liga (discoverLeagueViaNext).
-- `eventsround.php` é o mais completo (mas na Copa 2026 a fase de grupos
-  veio com só 5 jogos/rodada). Toda força/forma é calculada dele.
+- `eventspastleague.php` / `eventslast.php` → só 1 evento.
+- `eventsday.php` → ~3 eventos/dia. A descoberta de ligas nacionais NÃO pode
+  depender só dele: `matches.js` roda `eventsnextleague` + `eventsround` para
+  TODAS as ligas nacionais (discoverLeagueViaNext) e mescla fixtures.
+- `eventsround.php` é a base de tudo: força/forma calculadas dele.
+
+**Janela de exibição:** hoje+amanhã (eventsday) + **próxima rodada em até 7
+dias** por liga nacional (LEAGUE_LOOKAHEAD_DAYS) — sem isso, num domingo sem
+rodada (ex.: 02/08/2026, rodada só sex/sáb) o app e os bilhetes ficavam
+vazios. Copas continuam com 10 dias. Jogos `strStatus PST`/`strPostponed
+'yes'` são descartados (isPostponed em keepEvent — a API mantém a data velha).
+
+**Copa do Brasil (4725) — feeders:** os times quase não têm histórico DENTRO
+da copa → tudo virava "preliminar" e fora dos bilhetes. Solução: `feeders` em
+leagues.js — empresta força da Série A (factor 1) e Série B (factor 0.85,
+rebaixa a divisão inferior: att*f, def/f) via registro compartilhado
+(`strengthReg` em loadAllLeagues + ensureFeederStrength). A ordem de LEAGUES
+importa: Série A/B carregam antes da Copa do Brasil e alimentam o registro.
 
 **Rodadas de mata-mata (intRound):** códigos especiais — `125` = quartas,
 `150` = semi, `160`/`200` = 3º lugar/final (KNOCKOUT_ROUNDS em matches.js).
@@ -34,8 +50,15 @@ também as fases seguintes já agendadas dentro da janela de 10 dias.
 **Bilhetes do dia (tickets.js):** pool com até 4 mercados por jogo (resultado,
 dupla chance do favorito, +/-2.5 gols, ambas marcam). Bilhetes diferentes podem
 reusar o mesmo jogo em mercados diferentes (essencial no mata-mata, com 1–2
-jogos/dia); dentro de um bilhete, 1 palpite por jogo. Perfis por "centro" de
-probabilidade (safe 0.74 / mid 0.56 / risk 0.40), determinístico por daySeed.
+jogos/dia); dentro de um bilhete, 1 palpite por jogo e no máx. 2 pernas de
+gols/btts (diversificação). Perfis por "centro" de probabilidade com pisos
+(safe 0.80/minP 0.62/minConf 0.35 · mid 0.60/0.45 · risk 0.42/0.33),
+determinístico por daySeed. `buildDailyTickets` retorna `{tickets, dayStart,
+matchCount}`: se hoje não tem rodada, monta para o PRÓXIMO dia com jogos
+(span de 2 dias a partir dele) e a UI avisa ("bilhetes para sexta 07/08").
+`toOdd = max(1.01, (1/p)*0.94)` — margem DESCONTADA como casa real (antes
+*1.06 inflava odds e superestimava retorno no simulador). `bestPick` só
+sugere vitória simples com p≥0.55.
 
 **IDs de competição verificados (via WebFetch):** 4429 Copa do Mundo, 4503 Mundial
 de Clubes (FIFA Club WC), 4502 Eurocopa, 4480 Champions, 4481 Europa League, 5071
@@ -59,7 +82,7 @@ das últimas ~6 rodadas (`eventsround.php?id=&r=&s=`), com melhorias de calibra�
 - **seleções: blend** histórico do torneio × ranking curado, peso n/(n+3);
 - **Poisson com correção de Dixon-Coles** (rho=-0.11, empates/placares baixos) em poisson.js,
   btts/over calculados da grade corrigida, expH/expA clamp 0.2–4.5;
-- `bestPick` só sugere vitória simples com p≥0.50 (senão dupla chance);
+- `bestPick` só sugere vitória simples com p≥0.55 (senão dupla chance);
 - cada match tem `conf` 0..1 (lastro de dados; min dos dois lados) — mostrado
   como selo no MatchCard e usado como bônus de score nos bilhetes (safe pesa mais).
 Jogos futuros vêm da rodada atual. `src/lib/api.js` tem cache (5min) + retry/backoff (429/5xx).

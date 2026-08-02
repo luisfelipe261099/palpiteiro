@@ -1,8 +1,13 @@
 // Cliente do TheSportsDB com cache em memória + retry/backoff.
-// A chave gratuita "3" é compartilhada e tem limite; o backoff evita
+// A chave gratuita é compartilhada e tem limite; o backoff evita
 // falhas intermitentes sob rajada de requisições.
-
-const KEY = import.meta.env.VITE_TSDB_KEY || '3'
+//
+// ATENÇÃO à escolha da chave: em ago/2026 a chave pública "3" passou a
+// TRUNCAR o eventsround.php em ~5 eventos (uma rodada da Série A tem 10),
+// o que quebrava força/forma e esvaziava os bilhetes. A chave pública
+// "123" retorna a rodada COMPLETA — é o novo padrão.
+const env = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : {}
+const KEY = env.VITE_TSDB_KEY || '123'
 const BASE = `https://www.thesportsdb.com/api/v1/json/${KEY}/`
 
 const cache = new Map() // path -> { ts, data }

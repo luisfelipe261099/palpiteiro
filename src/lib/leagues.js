@@ -29,7 +29,20 @@ export const LEAGUES = [
   // ── Ligas nacionais ──
   { id: '4351', name: 'Brazilian Serie A', local: 'Brasileirão Série A', flag: '🇧🇷' },
   { id: '4404', name: 'Brazilian Serie B', local: 'Brasileirão Série B', flag: '🇧🇷' },
-  { id: '4725', name: 'Copa do Brasil', local: 'Copa do Brasil', flag: '🏆', cup: true },
+  // Copa do Brasil: os times têm pouco histórico DENTRO da copa (mata-mata
+  // de ida/volta), então a força é emprestada das ligas de origem (feeders).
+  // O factor rebaixa levemente times da Série B ao enfrentar os da Série A.
+  {
+    id: '4725',
+    name: 'Copa do Brasil',
+    local: 'Copa do Brasil',
+    flag: '🏆',
+    cup: true,
+    feeders: [
+      { id: '4351', factor: 1 },
+      { id: '4404', factor: 0.85 },
+    ],
+  },
   { id: '4346', name: 'American Major League Soccer', local: 'MLS', flag: '🇺🇸' },
   { id: '4328', name: 'English Premier League', local: 'Premier League', flag: '🏴' },
   { id: '4335', name: 'Spanish La Liga', local: 'La Liga', flag: '🇪🇸' },

@@ -78,9 +78,10 @@ export default function App() {
         ) : (
           <>
             <p className="intro">
-              Jogos de <b>hoje e amanhã</b> — e os <b>próximos jogos de copas e torneios</b> (como a Copa do
-              Mundo) com antecedência — com probabilidades por modelo estatístico (Poisson) a partir de{' '}
-              <b>dados reais</b> de classificação, força e forma. Toque em <b>+ Bilhete</b> para montar sua aposta.
+              Jogos de <b>hoje, de amanhã e da próxima rodada</b> de cada campeonato — e os{' '}
+              <b>próximos jogos de copas e torneios</b> (como a Copa do Mundo) com antecedência — com
+              probabilidades por modelo estatístico (Poisson) a partir de <b>dados reais</b> de classificação,
+              força e forma. Toque em <b>+ Bilhete</b> para montar sua aposta.
             </p>
 
             {!loading && !error && groups.length > 0 && <SearchBar value={query} onChange={setQuery} />}

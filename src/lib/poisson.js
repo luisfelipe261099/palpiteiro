@@ -69,9 +69,9 @@ export function bestPick(pr, m) {
   ].sort((a, b) => b.p - a.p)
 
   let pick = opts[0]
-  // só recomenda vitória simples com favorito de verdade (≥50%);
+  // só recomenda vitória simples com favorito de verdade (≥55%);
   // abaixo disso a dupla chance erra bem menos
-  if (pick.p < 0.5) {
+  if (pick.p < 0.55) {
     // sem favorito claro: sugere dupla chance mais provável
     pick = [
       { key: '1X', label: `${m.home.short} ou Empate`, p: pr.pH + pr.pD },
@@ -88,5 +88,8 @@ export function tier(p) {
   return { cls: 'risk', txt: 'Arriscado' }
 }
 
-export const toOdd = (p) => (1 / p) * 1.06 // +6% margem simulada
+// odd simulada estilo casa de aposta: a casa DESCONTA a margem do preço
+// justo (paga menos que 1/p). Antes multiplicava por 1.06 — inflava a odd
+// acima do justo e superestimava o retorno no simulador.
+export const toOdd = (p) => Math.max(1.01, (1 / p) * 0.94)
 export const pct = (p) => Math.round(p * 100)

@@ -39,6 +39,10 @@ function eventTimestamp(e) {
 
 // só mostra jogos de hoje e amanhã (janela de 2 dias)
 const WINDOW_DAYS = 2
+// ligas nacionais: se não há jogo hoje/amanhã (ex.: rodada só no fim de
+// semana), mostra a PRÓXIMA rodada com até 7 dias de antecedência — senão
+// o app (e os bilhetes do dia) ficava vazio em dias sem rodada.
+const LEAGUE_LOOKAHEAD_DAYS = 7
 // copas/seleções (Copa do Mundo, Eurocopa, Mundial de Clubes, mata-matas
 // europeus) são torneios concentrados e de alto interesse que começam numa
 // data fixa. Mostramos seus próximos jogos com mais antecedência para que a
@@ -66,6 +70,12 @@ function isUnplayed(e) {
   return e.intHomeScore == null || e.intHomeScore === ''
 }
 
+// jogo adiado: a API mantém a data original (às vezes já passada) com
+// status PST — não pode aparecer como palpite nem como jogo ao vivo.
+function isPostponed(e) {
+  return e.strPostponed === 'yes' || /^(PST|Postp)/i.test(e.strStatus || '')
+}
+
 // o evento é de HOJE (data local)?
 function isTodayLocal(e) {
   const d = tsToDate(eventTimestamp(e))
@@ -80,6 +90,7 @@ function isTodayLocal(e) {
 // iniciados/encerrados — a aba Ao Vivo acompanha placar e resultado do dia.
 // (Os iniciados ficam com `started: true` e não entram em palpites/bilhetes.)
 function keepEvent(e) {
+  if (isPostponed(e)) return false
   return isUnplayed(e) || isTodayLocal(e)
 }
 
@@ -266,14 +277,65 @@ function buildMatches(lg, fixtures, strength, form, leagueAvg, homeAdv) {
   })
 }
 
-// monta uma liga a partir das fixtures de hoje/amanhã já descobertas
-// (caminho principal, via eventsday.php).
-async function loadLeagueFromFixtures(lg, fixtures) {
+// garante a força calculada de uma liga "de origem" (feeder) no registro,
+// mesmo que ela não esteja ativa na tela: descobre temporada/rodada pelo
+// próximo jogo e calcula das rodadas anteriores. Resultado fica cacheado.
+async function ensureFeederStrength(id, reg) {
+  if (reg.has(id)) return reg.get(id)
+  const lg = LEAGUES.find((l) => l.id === id)
+  if (!lg) return null
+  let res = null
+  try {
+    const d = await api(`eventsnextleague.php?id=${id}`)
+    const ev = ((d && d.events) || [])[0]
+    if (ev) res = await computeStrength(lg, ev.strSeason, parseInt(ev.intRound, 10))
+  } catch {
+    res = null
+  }
+  reg.set(id, res)
+  return res
+}
+
+// monta uma liga a partir das fixtures já descobertas. `reg` é o registro
+// compartilhado de forças por liga (usado pelas copas com `feeders`).
+async function loadLeagueFromFixtures(lg, fixtures, reg = new Map()) {
   fixtures.sort((a, b) => (eventTimestamp(a) || '').localeCompare(eventTimestamp(b) || ''))
   const first = fixtures[0]
   const season = first.strSeason
   const round = parseInt(first.intRound, 10)
-  const { strength, form, leagueAvg, homeAdv } = await computeStrength(lg, season, round)
+  const own = await computeStrength(lg, season, round)
+  reg.set(lg.id, own)
+
+  let { strength, form, leagueAvg, homeAdv } = own
+  // copa nacional (ex.: Copa do Brasil): times têm pouco histórico dentro da
+  // copa. Empresta a força calculada nas ligas de origem para os times sem
+  // dados próprios — sem isso os jogos ficavam "preliminares" e fora dos
+  // bilhetes. `factor` ajusta o nível entre divisões (Série B < Série A).
+  if (lg.feeders && lg.feeders.length) {
+    strength = { ...strength }
+    form = { ...form }
+    const teamIds = new Set()
+    fixtures.forEach((e) => {
+      teamIds.add(e.idHomeTeam)
+      teamIds.add(e.idAwayTeam)
+    })
+    const avgs = []
+    for (const f of lg.feeders) {
+      const fs = await ensureFeederStrength(f.id, reg)
+      if (!fs) continue
+      if (fs.leagueAvg) avgs.push(fs.leagueAvg)
+      for (const id of teamIds) {
+        const s = fs.strength[id]
+        if (s && !strength[id]) strength[id] = { att: s.att * f.factor, def: s.def / f.factor, n: s.n }
+        if (fs.form[id] && (!form[id] || !form[id].length)) form[id] = fs.form[id]
+      }
+    }
+    // copa sem amostra própria: usa a média de gols das ligas de origem
+    if (!Object.keys(own.strength).length && avgs.length) {
+      leagueAvg = avgs.reduce((a, b) => a + b, 0) / avgs.length
+    }
+  }
+
   const matches = buildMatches(lg, fixtures, strength, form, leagueAvg, homeAdv)
   return { id: lg.id, name: lg.local, flag: lg.flag, matches }
 }
@@ -348,15 +410,16 @@ async function discoverCupWide(lg) {
   return fixtures.length ? { lg, fixtures } : null
 }
 
-// Descobre os jogos de hoje/amanhã de uma liga nacional via eventsnextleague +
-// eventsround. Necessário porque o eventsday.php da chave gratuita passou a
-// vir truncado (só ~3 eventos/dia), deixando de listar as ligas conhecidas.
+// Descobre os jogos de uma liga nacional via eventsnextleague + eventsround.
+// Necessário porque o eventsday.php da chave gratuita vem truncado (só ~3
+// eventos/dia), deixando de listar as ligas conhecidas. Usa a janela ampliada
+// de 7 dias: em dia sem rodada, mostra a próxima rodada com antecedência.
 async function discoverLeagueViaNext(lg) {
   let ev = null
   try {
     const d = await api(`eventsnextleague.php?id=${lg.id}`)
     const events = (d && d.events) || []
-    ev = events.find((e) => keepEvent(e) && withinWindow(eventTimestamp(e))) || null
+    ev = events.find((e) => keepEvent(e) && withinWindow(eventTimestamp(e), LEAGUE_LOOKAHEAD_DAYS)) || null
   } catch {
     ev = null
   }
@@ -368,7 +431,9 @@ async function discoverLeagueViaNext(lg) {
   if (!isNaN(round) && season) {
     try {
       const rd = await api(`eventsround.php?id=${lg.id}&r=${round}&s=${encodeURIComponent(season)}`)
-      fixtures = (rd.events || []).filter(keepEvent).filter((e) => withinWindow(eventTimestamp(e)))
+      fixtures = (rd.events || [])
+        .filter(keepEvent)
+        .filter((e) => withinWindow(eventTimestamp(e), LEAGUE_LOOKAHEAD_DAYS))
     } catch {
       fixtures = []
     }
@@ -409,14 +474,25 @@ export async function loadAllLeagues() {
     }
   }
 
-  // 3) ligas nacionais que o eventsday (hoje truncado na chave gratuita) não
-  //    trouxe: verifica o próximo jogo de cada uma e carrega a rodada se ele
-  //    cair na janela de hoje/amanhã.
-  const missing = LEAGUES.filter((lg) => !isCupLeague(lg) && !byLeague.has(lg.id))
+  // 3) ligas nacionais: verifica o próximo jogo de cada uma e carrega a
+  //    rodada inteira se cair na janela de 7 dias. Roda para TODAS (não só as
+  //    ausentes do eventsday): o eventsday truncado pode ter trazido só 1 jogo
+  //    de uma liga que tem a rodada toda pela frente — os fixtures são
+  //    mesclados sem duplicar.
+  const nationals = LEAGUES.filter((lg) => !isCupLeague(lg))
   const found = await Promise.all(
-    missing.map((lg) => discoverLeagueViaNext(lg).catch(() => null)),
+    nationals.map((lg) => discoverLeagueViaNext(lg).catch(() => null)),
   )
-  for (const res of found) if (res) byLeague.set(res.lg.id, res)
+  for (const res of found) {
+    if (!res) continue
+    const existing = byLeague.get(res.lg.id)
+    if (existing) {
+      const seen = new Set(existing.fixtures.map((e) => e.idEvent))
+      for (const e of res.fixtures) if (!seen.has(e.idEvent)) existing.fixtures.push(e)
+    } else {
+      byLeague.set(res.lg.id, res)
+    }
+  }
 
   let groups = []
   if (byLeague.size) {
@@ -425,9 +501,12 @@ export async function loadAllLeagues() {
     const active = LEAGUES.map((lg) => byLeague.get(lg.id))
       .filter(Boolean)
       .slice(0, MAX_LEAGUES_SHOWN)
+    // registro compartilhado de forças por liga: evita recalcular a força da
+    // Série A/B quando a Copa do Brasil (feeders) precisa dela.
+    const strengthReg = new Map()
     for (const { lg, fixtures } of active) {
       try {
-        const g = await loadLeagueFromFixtures(lg, fixtures)
+        const g = await loadLeagueFromFixtures(lg, fixtures, strengthReg)
         if (g && g.matches.length) groups.push(g)
       } catch {
         /* ignora liga que falhou */
@@ -438,7 +517,7 @@ export async function loadAllLeagues() {
   if (!groups.length) {
     return {
       groups: [],
-      error: 'Sem jogos para hoje ou amanhã no momento. Volte mais perto da próxima rodada.',
+      error: 'Sem jogos nos próximos dias nas competições acompanhadas. Volte mais perto da próxima rodada.',
     }
   }
 
