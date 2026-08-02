@@ -6,7 +6,7 @@
 // O minuto do jogo não vem na API: é estimado pelo relógio a partir do
 // horário de início (com pausa de ~15min para o intervalo).
 import { predict, poissonPmf } from './poisson.js'
-import { BASE } from './api.js'
+import { fetchJson } from './api.js'
 
 // mesmo parser de timestamp usado em matches.js (UTC -> Date local)
 export function tsToDate(ts) {
@@ -29,7 +29,8 @@ export function inLiveWindow(match, now = new Date()) {
   return t >= d.getTime() - 5 * 60000 && t <= d.getTime() + 190 * 60000
 }
 
-// consulta os eventos (sem o cache de 5min do api.js — placar precisa ser fresco)
+// consulta os eventos (sem o cache de 5min do api.js — placar precisa ser
+// fresco; via proxy, o cache da CDN é de só ~45s para lookupevent)
 export async function fetchLiveEvents(matches) {
   const out = {}
   await Promise.all(
@@ -37,9 +38,7 @@ export async function fetchLiveEvents(matches) {
       const evId = m.eventId || String(m.id).split('-')[1]
       if (!evId) return
       try {
-        const r = await fetch(`${BASE}lookupevent.php?id=${evId}`)
-        if (!r.ok) return
-        const j = await r.json()
+        const j = await fetchJson(`lookupevent.php?id=${evId}`)
         const e = j && j.events && j.events[0]
         if (e) out[m.id] = e
       } catch {

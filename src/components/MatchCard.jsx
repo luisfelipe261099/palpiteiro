@@ -73,6 +73,10 @@ export default function MatchCard({ match, index }) {
   const t = tier(pick.p)
   const odd = toOdd(pick.p)
   const bestKey = pr.pH >= pr.pD && pr.pH >= pr.pA ? 'H' : pr.pA >= pr.pD ? 'A' : 'D'
+  // sem dados reais dos dois lados, o modelo devolve números "neutros"
+  // idênticos para qualquer jogo (ex.: placar 1-1 em todos os cards) —
+  // nesses casos os chips mostram "—" em vez de estatística falsa.
+  const noData = !match.predictable || match.preliminary
 
   const { has, toggle } = useBetSlip()
   const id = `${match.id}:${pick.key}`
@@ -115,18 +119,20 @@ export default function MatchCard({ match, index }) {
       <div className="extra">
         <div className="chip">
           <div className="k">Ambas marcam</div>
-          <div className="v">{pct(pr.btts)}%</div>
+          <div className="v">{noData ? '—' : `${pct(pr.btts)}%`}</div>
         </div>
         <div className="chip">
           <div className="k">+2.5 gols</div>
-          <div className="v">{pct(pr.over25)}%</div>
+          <div className="v">{noData ? '—' : `${pct(pr.over25)}%`}</div>
         </div>
         <div className="chip">
           <div className="k">Placar provável</div>
           <div className="v">
-            {pr.topScores && pr.topScores.length
-              ? `${pr.topScores[0].h}-${pr.topScores[0].a} (${pct(pr.topScores[0].p)}%)`
-              : `${Math.round(pr.expH)}-${Math.round(pr.expA)}`}
+            {noData
+              ? '—'
+              : pr.topScores && pr.topScores.length
+                ? `${pr.topScores[0].h}-${pr.topScores[0].a} (${pct(pr.topScores[0].p)}%)`
+                : `${Math.round(pr.expH)}-${Math.round(pr.expA)}`}
           </div>
         </div>
       </div>

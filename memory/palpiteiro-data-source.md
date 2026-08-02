@@ -100,8 +100,18 @@ re-rodar é grátis. computeStrength/predict/bestPick aceitam opts p/ variar
 hiperparâmetros. SEMPRE re-rodar antes de mexer em parâmetro de modelo.
 Jogos futuros vêm da rodada atual. `src/lib/api.js` tem cache (5min) + retry/backoff (429/5xx).
 
-**Outro gotcha:** a chave `3` é compartilhada e bloqueia o IP sob rajada de requisições
-(retorna `HTTP 000`/conexão recusada, não 429). Testar com moderação.
+**Outro gotcha:** as chaves públicas são compartilhadas e BLOQUEIAM o IP sob
+rajada (conexão recusada/`HTTP 000`, não 429). Sintoma em produção (ago/2026):
+a descoberta de jogos passava e o histórico das rodadas falhava silencioso →
+todos os cards "1-1 (13%)", zero previsíveis, bilhetes vazios. Correção:
+**proxy `/api/tsdb`** (função Vercel) com cache na CDN (`s-maxage=300`,
+lookupevent 45s) — visitantes compartilham o cache e a chave sai do bundle
+(TSDB_KEY server-side, fallback VITE_TSDB_KEY/123). `src/lib/api.js` tenta o
+proxy primeiro (detecta dev local pelo content-type e cai no acesso direto),
+com semáforo de 5 requisições simultâneas. `fetchJson` (sem cache) é usado
+pelo live; `api()` (cache 5min + retry) pelo resto. Cargas degradadas (jogos
+sem NENHUM previsível) não entram no cache localStorage do useMatches, e o
+MatchCard mostra "—" nos chips quando `!predictable || preliminary`.
 
 **Ao Vivo (aba):** livescore de verdade é premium na TheSportsDB, MAS
 `lookupevent.php` (chave 3) atualiza `intHomeScore/intAwayScore` e `strStatus`

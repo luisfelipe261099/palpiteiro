@@ -41,7 +41,12 @@ export function useMatches() {
     if (!silent) setState((s) => ({ ...s, loading: true, error: null }))
     try {
       const { groups, error } = await loadAllLeagues()
-      if (!error) writeCache(groups)
+      // carga degradada: jogos vieram mas NENHUM com estatística (a fonte
+      // limitou o acesso no meio do carregamento). Não grava no cache — senão
+      // o usuário ficaria 10min preso aos cards sem previsão.
+      const degraded =
+        groups.length > 0 && !groups.some((g) => g.matches.some((m) => m.predictable))
+      if (!error && !degraded) writeCache(groups)
       setState({ groups, loading: false, error })
     } catch {
       // mantém o que já estava na tela em caso de falha

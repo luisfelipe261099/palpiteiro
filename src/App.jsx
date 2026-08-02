@@ -74,6 +74,7 @@ export default function App() {
             loading={loading}
             error={error}
             onGoMatches={() => setView('matches')}
+            onRetry={() => reload({ fresh: true })}
           />
         ) : (
           <>

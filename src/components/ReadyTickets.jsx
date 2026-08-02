@@ -17,7 +17,7 @@ function dayLabel(dayStart) {
   return `${dias[d.getDay()]}, ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
-export default function ReadyTickets({ groups, loading, error, onGoMatches }) {
+export default function ReadyTickets({ groups, loading, error, onGoMatches, onRetry }) {
   const now = new Date()
   const daySeed = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`
   const dateLabel = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })
@@ -54,16 +54,26 @@ export default function ReadyTickets({ groups, loading, error, onGoMatches }) {
     return <div className="state">{error}</div>
   }
   if (!tickets.length) {
+    // há jogos carregados mas nenhum com estatística? Provável falha
+    // temporária ao baixar o histórico das rodadas (fonte limitou o acesso)
+    // — recarregar costuma resolver.
+    const hasMatches = groups.some((g) => g.matches.some((m) => !m.started))
     return (
       <div className="empty-tickets">
         <CalendarX2 size={34} strokeWidth={1.5} />
         <div className="empty-title">Sem bilhetes por enquanto</div>
         <p>
-          Nenhum jogo dos próximos dias tem dados suficientes (histórico ou ranking) para gerar palpites
-          confiáveis. Os bilhetes voltam automaticamente na próxima rodada com jogos previsíveis.
+          {hasMatches
+            ? 'Os jogos carregaram, mas as estatísticas (histórico das rodadas) não vieram desta vez — a fonte de dados pode ter limitado o acesso momentaneamente. Toque em atualizar para tentar de novo.'
+            : 'Nenhum jogo dos próximos dias tem dados suficientes (histórico ou ranking) para gerar palpites confiáveis. Os bilhetes voltam automaticamente na próxima rodada com jogos previsíveis.'}
         </p>
+        {hasMatches && onRetry && (
+          <button className="retry" onClick={onRetry}>
+            Atualizar dados
+          </button>
+        )}
         {onGoMatches && (
-          <button className="retry" onClick={onGoMatches}>
+          <button className="retry" onClick={onGoMatches} style={{ marginLeft: 8 }}>
             Ver os jogos disponíveis
           </button>
         )}
